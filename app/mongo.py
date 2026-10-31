@@ -15,6 +15,7 @@ def configure(url=None, name="crms", client=None):
     _db = client[name]
     _db.evidence.create_index([("case_id", ASCENDING), ("evidence_no", ASCENDING)], unique=True)
     _db.notes.create_index("complaint_id")
+    _db.login_failures.create_index("key")
     _db.attachments.create_index("complaint_id")
     _db.attachments.create_index("attachment_id", unique=True)
     _db.notifications.create_index([("user_id", ASCENDING), ("seen", ASCENDING)])

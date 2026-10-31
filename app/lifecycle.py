@@ -114,5 +114,18 @@ def assign_officer(case_id, officer_id, user_id):
         raise RuleError("Pick an active officer.")
     run('UPDATE crime_case SET officer_id = ? WHERE case_id = ?', officer_id, case_id)
     log_status("case assignment", case_id, case["officer_id"], officer_id, user_id)
+    _tell_officers(case, officer_id)
     get_db().commit()
     return officer["name"]
+
+
+def _tell_officers(case, new_officer_id):
+    """The new officer hears about the case, and the previous one hears it moved."""
+    title = _complaint(case["complaint_id"])["title"]
+    link = f"/cases/{case['case_id']}"
+    if new_officer_id != case["officer_id"]:
+        new = one("SELECT user_id FROM officer WHERE officer_id = ?", new_officer_id)
+        notify(new["user_id"], f"Case {case['case_id']}, \u201c{title}\u201d, was assigned to you.", link)
+    if case["officer_id"] and case["officer_id"] != new_officer_id:
+        old = one("SELECT user_id FROM officer WHERE officer_id = ?", case["officer_id"])
+        notify(old["user_id"], f"Case {case['case_id']}, \u201c{title}\u201d, was reassigned to another officer.", link)

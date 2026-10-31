@@ -5,6 +5,7 @@ from starlette.requests import Request
 from ..auth import current_user, hash_password, login_required, verify_password
 from ..db import get_db, many, one, run
 from ..forms import as_dict, as_dicts, need
+from .. import throttle
 from ..lifecycle import RuleError
 from ..mongo import clean, mdb
 
@@ -41,9 +42,14 @@ def me(request: Request):
 
 @router.post("/auth/login")
 def login(body: Login, request: Request):
-    user = one("SELECT * FROM users WHERE email = ?", body.email.strip().lower())
+    email = body.email.strip().lower()
+    ip = request.client.host if request.client else "unknown"
+    throttle.check(email, ip)
+    user = one("SELECT * FROM users WHERE email = ?", email)
     if not (user and user["active"] and verify_password(body.password, user["password"])):
+        throttle.fail(email, ip)
         raise HTTPException(400, "Email or password is wrong.")
+    throttle.clear(email, ip)
     request.session.clear()
     request.session["user_id"] = user["user_id"]
     request.state.user = user

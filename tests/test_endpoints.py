@@ -93,3 +93,46 @@ def test_profile(make_client):
     assert asha.put("/api/profile", json={"name": "Asha N", "address": "12 Lake Road", "phone": "123"}).json()["user"]["name"] == "Asha N"
     assert asha.get("/api/profile").json()["extra"]["address"] == "12 Lake Road"
     assert asha.put("/api/profile", json={"name": "Asha N", "password": "short"}).status_code == 400
+
+
+def test_login_locks_after_five_failures(make_client):
+    client = make_client()
+    for _ in range(5):
+        assert client.post("/api/auth/login", json={"email": "asha@t.test", "password": "wrong"}).status_code == 400
+    locked = client.post("/api/auth/login", json={"email": "asha@t.test", "password": "password123"})
+    assert locked.status_code == 429
+    assert "Try again in" in locked.json()["detail"]
+    # another account is not affected
+    assert client.post("/api/auth/login", json={"email": "bina@t.test", "password": "password123"}).status_code == 200
+
+
+def test_success_clears_earlier_failures(make_client):
+    client = make_client()
+    for _ in range(4):
+        client.post("/api/auth/login", json={"email": "asha@t.test", "password": "wrong"})
+    assert client.post("/api/auth/login", json={"email": "asha@t.test", "password": "password123"}).status_code == 200
+    client.post("/api/auth/logout")
+    for _ in range(4):
+        assert client.post("/api/auth/login", json={"email": "asha@t.test", "password": "wrong"}).status_code == 400
+
+
+def test_officers_are_told_about_assignments(make_client):
+    asha, admin = make_client("asha@t.test"), make_client("admin@t.test")
+    asha.post("/api/complaints", json={
+        "title": "Bike stolen", "description": "Taken.", "location": "Lake Road", "incident_date": "2026-10-01",
+    })
+    admin.post("/api/complaints/1/verify")
+    admin.post("/api/complaints/1/register-case", json={"station_id": 1})
+    first, second = make_client("officer@t.test"), make_client("other@t.test")
+
+    admin.post("/api/cases/1/assign", json={"officer_id": 1})
+    assert "was assigned to you" in first.get("/api/notifications").json()["items"][0]["message"]
+
+    admin.post("/api/cases/1/assign", json={"officer_id": 2})
+    assert "was assigned to you" in second.get("/api/notifications").json()["items"][0]["message"]
+    assert "reassigned" in first.get("/api/notifications").json()["items"][0]["message"]
+
+    # assigning the same officer again is not news
+    before = len(second.get("/api/notifications").json()["items"])
+    admin.post("/api/cases/1/assign", json={"officer_id": 2})
+    assert len(second.get("/api/notifications").json()["items"]) == before

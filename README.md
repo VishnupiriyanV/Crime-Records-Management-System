@@ -69,6 +69,7 @@ That wipes every table in the database it points at, so use the development cont
 
 ## Known limits
 
+- Sign-in is locked for 15 minutes after five wrong passwords for one email from one address. The count is kept in MongoDB, and the address is the one the server sees, so behind a proxy it needs the proxy's forwarded address configured.
 - SQLite or PostgreSQL or MySQL, and MongoDB, are written separately, so a failure between the two writes can leave them out of step. There is no cross-database transaction.
 - Uploads are limited to images, PDFs and text files of 5 MB or less, five per complaint.
 - Each request opens its own database connection; there is no connection pool.
