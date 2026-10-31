@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CRMS Product Requirements</title>
+<meta name="description" content="Product requirements document for the Crime Records Management System: scope, users, requirements, data model and release plan.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./prd.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="container">
+    <a class="brand" href="#top">CRMS<span>PRD v1.0</span></a>
+    <nav aria-label="Sections">
+      <a href="#overview">Overview</a>
+      <a href="#requirements">Requirements</a>
+      <a href="#data">Data model</a>
+      <a href="#release">Release plan</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+<section class="hero">
+  <div class="container grid">
+    <div>
+      <h1>Crime Records Management System</h1>
+      <p class="lead">One system for complaints, cases, criminals and evidence, replacing paper registers.</p>
+      <div class="actions">
+        <a class="btn btn--primary" href="#requirements">Read the requirements</a>
+        <a class="btn" href="#data">See the data model</a>
+      </div>
+    </div>
+
+    <div class="sheet">
+      <div class="sheet-head"><h2>Product requirements document</h2><span>Draft 1.0</span></div>
+      <table class="facts">
+        <tbody>
+          <tr><th scope="row">Product</th><td>Crime Records Management System (CRMS)</td></tr>
+          <tr><th scope="row">Context</th><td>DBMS laboratory project</td></tr>
+          <tr><th scope="row">Document date</th><td class="num">2026-10-31</td></tr>
+          <tr><th scope="row">Users</th><td>Citizen, police officer, police admin</td></tr>
+          <tr><th scope="row">Databases</th><td>MySQL 8, PostgreSQL 14+, MongoDB 6+</td></tr>
+          <tr><th scope="row">Source</th><td>CRMS UML record sheet, exhibits 01 to 09</td></tr>
+        </tbody>
+      </table>
+      <p class="sheet-note">Requirement ids match the use cases and diagrams in the source record sheet.</p>
+    </div>
+  </div>
+</section>
+
+<div class="container doc">
+
+  <aside class="toc" aria-label="Contents">
+    <p>Contents</p>
+    <ol>
+      <li><a href="#overview"><b>01</b>Overview</a></li>
+      <li><a href="#users"><b>02</b>Users and roles</a></li>
+      <li><a href="#scope"><b>03</b>Scope</a></li>
+      <li><a href="#requirements"><b>04</b>Functional requirements</a></li>
+      <li><a href="#lifecycle"><b>05</b>Complaint lifecycle</a></li>
+      <li><a href="#quality"><b>06</b>Quality requirements</a></li>
+      <li><a href="#data"><b>07</b>Data model</a></li>
+      <li><a href="#stack"><b>08</b>Environment</a></li>
+      <li><a href="#release"><b>09</b>Release plan</a></li>
+      <li><a href="#risks"><b>10</b>Assumptions and risks</a></li>
+    </ol>
+  </aside>
+
+  <div class="body">
+    <section class="sec" id="overview">
+      <header><h2>Overview</h2></header>
+      <p>Police stations keep complaints, cases, criminals and evidence in scattered paper registers. Cross-referencing a suspect, following a case or producing a report is slow and error-prone.</p>
+      <p>CRMS centralises that data. A citizen files and tracks a complaint online. An officer or admin verifies it, registers a case, manages criminal and evidence records, and generates reports, all from one database.</p>
+
+      <div class="split">
+        <div>
+          <h3>Goals</h3>
+          <ul class="plain">
+            <li>Let a citizen report a crime without visiting the station, and see its progress.</li>
+            <li>Give officers one place for case, criminal and evidence data.</li>
+            <li>Enforce a single case lifecycle so no record skips a step.</li>
+            <li>Run the same schema and operations on MySQL, PostgreSQL and MongoDB.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Non-goals</h3>
+          <ul class="plain">
+            <li>Court proceedings and judgments.</li>
+            <li>Integration with external police databases.</li>
+            <li>Production-grade deployment; this is a lab prototype.</li>
+            <li>Citizen access to criminal, evidence or investigation data.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+    <section class="sec" id="users">
+      <header><h2>Users and roles</h2></header>
+      <div class="tbl"><table>
+        <thead><tr><th>Role</th><th>What they do</th><th>What they need</th></tr></thead>
+        <tbody>
+          <tr><td><b>Citizen</b></td><td>Public user. Files and follows their own complaints.</td><td>Report a crime without visiting the station; see progress.</td></tr>
+          <tr><td><b>Police officer</b></td><td>Investigates assigned cases.</td><td>One place for case, criminal and evidence data.</td></tr>
+          <tr><td><b>Police admin</b></td><td>Station-level owner of the system.</td><td>Verify complaints, assign officers, manage users, produce reports.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+    <section class="sec" id="scope">
+      <header><h2>Scope</h2></header>
+      <div class="split">
+        <div>
+          <h3>In scope</h3>
+          <ul class="plain">
+            <li>Registration, login and role-based access.</li>
+            <li>Complaint filing, tracking and evidence upload.</li>
+            <li>Complaint verification and case registration.</li>
+            <li>Officer assignment and case status updates.</li>
+            <li>Criminal and evidence records.</li>
+            <li>Reports and user account management.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Out of scope</h3>
+          <ul class="plain">
+            <li>Court workflow after the chargesheet.</li>
+            <li>External police or government databases.</li>
+            <li>Payments, mobile apps and biometric data.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+    <section class="sec" id="requirements">
+      <header><h2>Functional requirements</h2></header>
+      <p>Fourteen requirements, each tied to an actor and a priority. Nine are high priority and form the first release.</p>
+      <div class="tbl" style="margin-top: var(--space-lg)"><table>
+        <thead><tr><th>Id</th><th>Requirement</th><th>Actor</th><th>Priority</th></tr></thead>
+        <tbody>
+          <tr><td class="id">FR-01</td><td>Users register and log in with email and password; access is granted by role.</td><td>All</td><td><span class="pri pri--high">High</span></td></tr>
+          <tr><td class="id">FR-02</td><td>A logged-in citizen files a complaint (FIR) with description, date, location and optional attachments.</td><td>Citizen</td><td><span class="pri pri--high">High</span></td></tr>
+          <tr><td class="id">FR-03</td><td>A citizen tracks the status of their own complaints and linked case, and nobody else’s.</td><td>Citizen</td><td><span class="pri pri--high">High</span></td></tr>
+          <tr><td class="id">FR-04</td><td>A citizen uploads evidence or a written statement against an open complaint.</td><td>Citizen</td><td><span class="pri pri--med">Medium</span></td></tr>
+          <tr><td class="id">FR-05</td><td>A citizen searches public records, such as wanted persons and station contacts, and updates their profile.</td><td>Citizen</td><td><span class="pri pri--low">Low</span></td></tr>
+          <tr><td class="id">FR-06</td><td>The system notifies the citizen when their complaint changes state.</td><td>System</td><td><span class="pri pri--med">Medium</span></td></tr>
+          <tr><td class="id">FR-07</td><td>An officer or admin verifies a complaint, marking it Verified or Rejected with a reason.</td><td>Officer, admin</td><td><span class="pri pri--high">High</span></td></tr>
+          <tr><td class="id">FR-08</td><td>A verified complaint is registered as a case, linked to its complaint and police station.</td><td>Officer, admin</td><td><span class="pri pri--high">High</span></td></tr>
+          <tr><td class="id">FR-09</td><td>An admin assigns and reassigns an officer to a case.</td><td>Admin</td><td><span class="pri pri--high">High</span></td></tr>
+          <tr><td class="id">FR-10</td><td>Officers add, update and search criminal records and link criminals to cases, many to many.</td><td>Officer</td><td><span class="pri pri--high">High</span></td></tr>
+          <tr><td class="id">FR-11</td><td>Officers record evidence against a case; evidence is deleted only with its case.</td><td>Officer</td><td><span class="pri pri--high">High</span></td></tr>
+          <tr><td class="id">FR-12</td><td>Case status follows the lifecycle in section 05; invalid transitions are refused.</td><td>Officer</td><td><span class="pri pri--high">High</span></td></tr>
+          <tr><td class="id">FR-13</td><td>Admins generate reports: cases by status, by station, by period, and per-criminal history.</td><td>Admin</td><td><span class="pri pri--med">Medium</span></td></tr>
+          <tr><td class="id">FR-14</td><td>Admins create, deactivate and change the role of user accounts.</td><td>Admin</td><td><span class="pri pri--med">Medium</span></td></tr>
+        </tbody>
+      </table></div>
+    </section>
+    <section class="sec" id="lifecycle">
+      <header><h2>Complaint lifecycle</h2></header>
+      <p>Every complaint moves through the states below. The system accepts only the transitions drawn; anything else is refused (FR-12).</p>
+      <figure class="fig" style="margin-top: var(--space-lg)">
+        <svg viewBox="0 0 960 290" role="img" aria-label="State diagram. A filed complaint is verified or rejected. A verified complaint becomes an under-investigation case, which either files a chargesheet and closes as resolved, or closes as unresolved. Rejected and both closed states are final.">
+          <defs>
+            <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path class="ah" d="M1,1 L9,5 L1,9 Z"/></marker>
+            <marker id="ahn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path class="ah ah--no" d="M1,1 L9,5 L1,9 Z"/></marker>
+          </defs>
+
+          <circle class="st--end st" cx="14" cy="102" r="7"/>
+          <line class="ln" x1="21" y1="102" x2="38" y2="102" marker-end="url(#ah)"/>
+
+          <rect class="st" x="40" y="80" width="110" height="44"/>
+          <text x="95" y="107" text-anchor="middle">Filed</text>
+
+          <line class="ln" x1="150" y1="102" x2="218" y2="102" marker-end="url(#ah)"/>
+          <text class="cap" x="184" y="92" text-anchor="middle">confirmed</text>
+
+          <rect class="st" x="220" y="80" width="120" height="44"/>
+          <text x="280" y="107" text-anchor="middle">Verified</text>
+
+          <line class="ln" x1="340" y1="102" x2="398" y2="102" marker-end="url(#ah)"/>
+          <text class="cap" x="369" y="92" text-anchor="middle">case registered</text>
+
+          <rect class="st st--hub" x="400" y="80" width="150" height="44"/>
+          <text x="475" y="107" text-anchor="middle">Under investigation</text>
+
+          <line class="ln" x1="550" y1="102" x2="618" y2="102" marker-end="url(#ah)"/>
+          <text class="cap" x="584" y="92" text-anchor="middle">evidence sufficient</text>
+
+          <rect class="st" x="620" y="80" width="140" height="44"/>
+          <text x="690" y="107" text-anchor="middle">Chargesheet filed</text>
+
+          <line class="ln" x1="760" y1="102" x2="808" y2="102" marker-end="url(#ah)"/>
+          <text class="cap" x="784" y="92" text-anchor="middle">verdict</text>
+
+          <rect class="st" x="810" y="80" width="140" height="44"/>
+          <text x="880" y="107" text-anchor="middle">Closed, resolved</text>
+
+          <!-- Filed to Rejected -->
+          <path class="ln ln--no" d="M95,124 V222 H218" marker-end="url(#ahn)"/>
+          <text class="cap cap--no" x="104" y="176">duplicate or invalid</text>
+          <rect class="st" x="220" y="200" width="120" height="44"/>
+          <text x="280" y="227" text-anchor="middle">Rejected</text>
+
+          <!-- Investigation to Unresolved -->
+          <path class="ln ln--no" d="M475,124 V198" marker-end="url(#ahn)"/>
+          <text class="cap cap--no" x="484" y="166">evidence insufficient</text>
+          <rect class="st" x="390" y="200" width="170" height="44"/>
+          <text x="475" y="227" text-anchor="middle">Closed, unresolved</text>
+        </svg>
+        <figcaption>Fig. 1. Complaint and case lifecycle. Rejected and both closed states are final. Red-line transitions are the two ways a record leaves the main path.</figcaption>
+      </figure>
+    </section>
+    <section class="sec" id="quality">
+      <header><h2>Quality requirements</h2></header>
+      <div class="tbl"><table>
+        <thead><tr><th>Id</th><th>Quality</th><th>Requirement</th></tr></thead>
+        <tbody>
+          <tr><td class="id">NFR-01</td><td><b>Security</b></td><td>Passwords stored hashed (bcrypt or similar); role-based access checked on every request.</td></tr>
+          <tr><td class="id">NFR-02</td><td><b>Privacy</b></td><td>Criminal, evidence and investigation data is never visible to the citizen role.</td></tr>
+          <tr><td class="id">NFR-03</td><td><b>Integrity</b></td><td>Primary and foreign keys enforced; no case without a complaint, no evidence without a case.</td></tr>
+          <tr><td class="id">NFR-04</td><td><b>Auditability</b></td><td>Every status change is logged with user, timestamp and old and new value.</td></tr>
+          <tr><td class="id">NFR-05</td><td><b>Performance</b></td><td>Record searches return in under 2 seconds on up to 100,000 records, using indexed keys and names.</td></tr>
+          <tr><td class="id">NFR-06</td><td><b>Availability</b></td><td>Daily database backup; recovery possible from the last backup.</td></tr>
+          <tr><td class="id">NFR-07</td><td><b>Usability</b></td><td>A citizen can file a complaint in under 5 minutes without training.</td></tr>
+          <tr><td class="id">NFR-08</td><td><b>Portability</b></td><td>The same schema and operations run on MySQL, PostgreSQL and MongoDB.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+    <section class="sec" id="data">
+      <header><h2>Data model</h2></header>
+      <p>The case is the hub. A complaint escalates to at most one case; the case links officers, a station, evidence, criminals and reports.</p>
+      <div class="tbl" style="margin-top: var(--space-lg)"><table>
+        <thead><tr><th>Entity</th><th>Key attributes</th><th>Relationships</th></tr></thead>
+        <tbody>
+          <tr><td><b>User</b></td><td class="mono">userId, name, email, password, role</td><td>Specialised into Citizen, Officer and Admin.</td></tr>
+          <tr><td><b>Complaint</b></td><td class="mono">complaintId, citizenId, description, dateFiled, status</td><td>Citizen 1 to many Complaint; escalates to 0 or 1 Case.</td></tr>
+          <tr><td><b>Case</b></td><td class="mono">caseId, complaintId, officerId, stationId, status, dateOpened</td><td>Hub for Officer, Station, Evidence, Criminal and Report.</td></tr>
+          <tr><td><b>Criminal</b></td><td class="mono">criminalId, name, age, crimeHistory</td><td>Case many to many Criminal, through a junction table.</td></tr>
+          <tr><td><b>Evidence</b></td><td class="mono">evidenceId, caseId, type, description, dateCollected</td><td>Weak entity; composed in Case, deleted with it.</td></tr>
+          <tr><td><b>PoliceStation</b></td><td class="mono">stationId, name, jurisdiction</td><td>Hosts Officers and Cases.</td></tr>
+          <tr><td><b>Report</b></td><td class="mono">reportId, caseId, officerId, content, dateGenerated</td><td>Case 1 to many Report.</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>Cardinalities</h3>
+      <div class="tbl"><table>
+        <thead><tr><th>From</th><th>Relationship</th><th>To</th><th>Cardinality</th></tr></thead>
+        <tbody>
+          <tr><td>Citizen</td><td>files</td><td>Complaint</td><td class="mono">1 : N</td></tr>
+          <tr><td>Complaint</td><td>escalates to</td><td>Case</td><td class="mono">1 : 0..1</td></tr>
+          <tr><td>Case</td><td>involves</td><td>Criminal</td><td class="mono">M : N</td></tr>
+          <tr><td>Police station</td><td>registers</td><td>Case</td><td class="mono">1 : N</td></tr>
+          <tr><td>Police station</td><td>hosts</td><td>Officer</td><td class="mono">1 : N</td></tr>
+          <tr><td>Officer</td><td>handles</td><td>Case</td><td class="mono">1 : N</td></tr>
+          <tr><td>Case</td><td>has</td><td>Evidence</td><td class="mono">1 : N</td></tr>
+          <tr><td>Case</td><td>is documented in</td><td>Report</td><td class="mono">1 : N</td></tr>
+        </tbody>
+      </table></div>
+      <p style="margin-top: var(--space-md)"><b style="font-family: var(--font-display); font-weight: 600; color: var(--color-ink)">Naming note.</b> <code style="font-family: var(--font-outlier); font-size: var(--text-xs)">case</code> is a reserved word in MySQL and PostgreSQL, so the table is quoted or named <code style="font-family: var(--font-outlier); font-size: var(--text-xs)">crime_case</code>. In MongoDB, evidence can be embedded in each case document.</p>
+    </section>
+    <section class="sec" id="stack">
+      <header><h2>Environment</h2></header>
+      <div class="split">
+        <div>
+          <h3>Hardware</h3>
+          <ul class="plain">
+            <li>Intel i3 or AMD Ryzen 3, or better.</li>
+            <li>4 GB RAM minimum, 8 GB recommended.</li>
+            <li>10 GB free disk space.</li>
+            <li>Network connection for multi-user access.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Software</h3>
+          <ul class="plain">
+            <li>Windows 10 or later, or Ubuntu 20.04 or later.</li>
+            <li>MySQL 8, PostgreSQL 14+, MongoDB 6+.</li>
+            <li>Front end in HTML, CSS and JavaScript.</li>
+            <li>Back end in Python or Node.js with database drivers.</li>
+            <li>MySQL Workbench, pgAdmin, MongoDB Compass.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+    <section class="sec" id="release">
+      <header><h2>Release plan</h2></header>
+      <p>A proposed order, built from the requirement priorities. Each phase ships something a user can complete end to end.</p>
+      <div class="phases" style="margin-top: var(--space-lg)">
+        <div class="phase">
+          <h3>Phase 1: Core case flow</h3>
+          <ul>
+            <li>FR-01 Login and roles</li>
+            <li>FR-02, FR-03 File and track</li>
+            <li>FR-07, FR-08 Verify, register</li>
+            <li>FR-09 Assign officer</li>
+          </ul>
+        </div>
+        <div class="phase">
+          <h3>Phase 2: Investigation data</h3>
+          <ul>
+            <li>FR-10 Criminal records</li>
+            <li>FR-11 Evidence</li>
+            <li>FR-12 Lifecycle rules</li>
+            <li>NFR-03, NFR-04 Integrity, audit log</li>
+          </ul>
+        </div>
+        <div class="phase">
+          <h3>Phase 3: Reach and reporting</h3>
+          <ul>
+            <li>FR-04, FR-06 Uploads, notifications</li>
+            <li>FR-13 Reports</li>
+            <li>FR-14 Account management</li>
+            <li>FR-05 Public search</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+    <section class="sec" id="risks">
+      <header><h2>Assumptions and risks</h2></header>
+      <div class="split">
+        <div>
+          <h3>Assumptions</h3>
+          <ul class="plain">
+            <li>Each officer is posted at one police station at a time.</li>
+            <li>A complaint becomes at most one case; rejected complaints are kept, not deleted.</li>
+            <li>Only admins create officer and admin accounts; citizens self-register.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Risks</h3>
+          <ul class="plain">
+            <li>Keeping three database engines consistent raises the cost of every schema change.</li>
+            <li>Dialect gaps, such as auto-number keys and TRUNCATE, can break a script that ran on another engine.</li>
+            <li>Sensitive records need strict role checks from the first release, not as a later fix.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<section class="band">
+  <div class="container grid">
+    <div>
+      <h2>Core schema, in one table per entity</h2>
+      <p>Full DDL, indexes, views and dialect differences are in the source record sheet, exhibit 09.</p>
+    </div>
+    <pre class="code"><span class="k">table</span>            key
+user             user_id
+citizen          citizen_id
+officer          officer_id
+admin            admin_id
+police_station   station_id
+complaint        complaint_id
+"case"           case_id, complaint_id unique
+criminal         criminal_id
+case_criminal    case_id, criminal_id
+evidence         case_id, evidence_no
+report           report_id
+status_log       log_id</pre>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="container">
+    <span><b>CRMS</b> Product requirements document, draft 1.0</span>
+    <span>Prepared from the CRMS UML record sheet</span>
+  </div>
+</footer>
+
+</body>
+</html>

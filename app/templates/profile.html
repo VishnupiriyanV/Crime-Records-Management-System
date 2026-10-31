@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><div><h1>Profile</h1><p>{{ user.email }}, signed in as {{ user.role }}.</p></div></div>
+<form class="panel form-narrow" method="post">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <div class="field"><label for="name">Full name</label><input id="name" name="name" value="{{ user.name }}" required></div>
+  {% if extra is not none %}
+  <div class="field"><label for="address">Address</label><input id="address" name="address" value="{{ extra.address or '' }}"></div>
+  <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" value="{{ extra.phone or '' }}"></div>
+  {% endif %}
+  <div class="field">
+    <label for="password">New password</label>
+    <input id="password" name="password" type="password" autocomplete="new-password">
+    <small>Leave blank to keep the current one.</small>
+  </div>
+  <button class="btn btn--primary" type="submit">Save changes</button>
+</form>
+{% endblock %}

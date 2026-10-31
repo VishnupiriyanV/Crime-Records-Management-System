@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><div><h1>Alerts</h1><p>Updates on your complaints and cases.</p></div></div>
+<div class="panel">
+  {% if items %}
+  <ul class="trail">
+    {% for n in items %}
+    <li>
+      <span>{% if n.link %}<a href="{{ n.link }}">{{ n.message }}</a>{% else %}{{ n.message }}{% endif %}</span>
+      <span class="num muted">{{ n.created_at }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="empty"><p>Nothing yet. You will be told here when a complaint or case changes.</p></div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,39 @@
+import sqlite3
+from pathlib import Path
+
+from flask import current_app, g
+
+SCHEMA = Path(__file__).with_name("schema.sql")
+
+
+def get_db():
+    if "db" not in g:
+        g.db = sqlite3.connect(current_app.config["DATABASE"])
+        g.db.row_factory = sqlite3.Row
+        g.db.execute("PRAGMA foreign_keys = ON")
+    return g.db
+
+
+def close_db(_exc=None):
+    db = g.pop("db", None)
+    if db is not None:
+        db.close()
+
+
+def init_db():
+    db = get_db()
+    db.executescript(SCHEMA.read_text())
+    db.commit()
+
+
+def one(sql, *args):
+    return get_db().execute(sql, args).fetchone()
+
+
+def many(sql, *args):
+    return get_db().execute(sql, args).fetchall()
+
+
+def run(sql, *args):
+    cur = get_db().execute(sql, args)
+    return cur.lastrowid

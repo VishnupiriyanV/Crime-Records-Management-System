@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel form-narrow">
+  <h1>{{ title }}</h1>
+  <p style="margin-top: var(--space-sm)">{{ message }}</p>
+  <p style="margin-top: var(--space-md)"><a class="btn" href="{{ url_for('account.index') }}">Back to start</a></p>
+</div>
+{% endblock %}

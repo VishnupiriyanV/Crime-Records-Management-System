@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth">
+  <h1>Create account</h1>
+  <form class="panel" method="post">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <div class="field">
+      <label for="name">Full name</label>
+      <input id="name" name="name" value="{{ form.get('name', '') }}" autocomplete="name" required autofocus>
+    </div>
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" value="{{ form.get('email', '') }}" autocomplete="email" required>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
+      <small>At least 8 characters.</small>
+    </div>
+    <button class="btn btn--primary" type="submit">Create account</button>
+    <p class="alt">Already registered? <a href="{{ url_for('account.login') }}">Sign in</a></p>
+  </form>
+</div>
+{% endblock %}

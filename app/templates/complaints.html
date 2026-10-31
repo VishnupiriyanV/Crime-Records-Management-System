@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "macros.html" import status_badge, pager %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ 'My complaints' if user.role == 'citizen' else 'Complaints' }}</h1>
+    <p>{{ 'Everything you have filed, and where it stands.' if user.role == 'citizen' else 'Every complaint filed at any station.' }}</p>
+  </div>
+  {% if user.role == 'citizen' %}<a class="btn btn--primary" href="{{ url_for('complaints.new') }}">File a complaint</a>{% endif %}
+</div>
+
+<form class="filters" method="get">
+  <div class="row">
+    <div class="field"><label for="q">Search</label><input id="q" name="q" value="{{ q }}" placeholder="Title or location"></div>
+    <div class="field">
+      <label for="status">Status</label>
+      <select id="status" name="status">
+        <option value="">All</option>
+        {% for s in ['Filed', 'Verified', 'Rejected'] %}<option {{ 'selected' if s == status }}>{{ s }}</option>{% endfor %}
+      </select>
+    </div>
+    <button class="btn" type="submit">Filter</button>
+  </div>
+</form>
+
+<div class="panel">
+  {% if rows %}
+  <div class="table-wrap"><table class="data">
+    <thead><tr>
+      <th class="r">No.</th><th>Title</th>{% if user.role != 'citizen' %}<th>Filed by</th>{% endif %}
+      <th>Location</th><th>Filed on</th><th>Status</th><th>Case</th>
+    </tr></thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td class="num r">{{ r.complaint_id }}</td>
+        <td><a href="{{ url_for('complaints.detail', complaint_id=r.complaint_id) }}">{{ r.title }}</a></td>
+        {% if user.role != 'citizen' %}<td>{{ r.citizen_name }}</td>{% endif %}
+        <td>{{ r.location }}</td>
+        <td class="num">{{ r.date_filed }}</td>
+        <td>{{ status_badge(r.status) }}</td>
+        <td>{% if r.case_id %}{{ status_badge(r.case_status) }}{% else %}<span class="muted">None</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  {{ pager(page, pages, total, 'complaints.index') }}
+  {% else %}
+  <div class="empty">
+    {% if q or status %}<p>No complaints match those filters.</p><a class="btn" href="{{ url_for('complaints.index') }}">Clear filters</a>
+    {% elif user.role == 'citizen' %}<p>You have not filed a complaint yet. Describe what happened and where, and the station will review it.</p><a class="btn btn--primary" href="{{ url_for('complaints.new') }}">File a complaint</a>
+    {% else %}<p>No complaints have been filed yet.</p>{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

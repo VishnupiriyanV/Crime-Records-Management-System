@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% from "macros.html" import status_badge, csrf %}
+{% block content %}
+<div class="crumbs"><a href="{{ url_for('complaints.index') }}">Complaints</a> / No. {{ c.complaint_id }}</div>
+<div class="page-head">
+  <div><h1>{{ c.title }}</h1><p>Filed by {{ c.citizen_name }} on {{ c.date_filed }}</p></div>
+  {{ status_badge(c.status) }}
+</div>
+
+<div class="cols">
+  <div>
+    <section class="panel">
+      <h2>Complaint</h2>
+      <dl class="facts">
+        <dt>Where</dt><dd>{{ c.location }}</dd>
+        <dt>Incident date</dt><dd class="num">{{ c.incident_date }}</dd>
+        <dt>Description</dt><dd class="prose">{{ c.description }}</dd>
+        {% if c.status == 'Rejected' %}<dt>Reason</dt><dd>{{ c.reject_reason }}</dd>{% endif %}
+      </dl>
+    </section>
+
+    <section class="panel">
+      <h2>Statements and evidence</h2>
+      {% for n in notes %}
+      <div class="note"><small>{{ n.kind | capitalize }}, {{ n.created_at }}</small><div class="prose">{{ n.body }}</div></div>
+      {% else %}
+      <p class="muted">Nothing added yet.</p>
+      {% endfor %}
+      {% if can_add_note %}
+      <form method="post" action="{{ url_for('complaints.add_note', complaint_id=c.complaint_id) }}" style="margin-top: var(--space-md)">
+        {{ csrf() }}
+        <div class="field">
+          <label for="kind">Type</label>
+          <select id="kind" name="kind"><option value="statement">Statement</option><option value="evidence">Evidence description</option></select>
+        </div>
+        <div class="field"><label for="body">Details</label><textarea id="body" name="body" required></textarea></div>
+        <button class="btn" type="submit">Add</button>
+      </form>
+      {% endif %}
+    </section>
+  </div>
+
+  <div>
+    <section class="panel">
+      <h2>Case</h2>
+      {% if case %}
+      <dl class="facts">
+        <dt>Status</dt><dd>{{ status_badge(case.status) }}</dd>
+        <dt>Station</dt><dd>{{ case.station }}</dd>
+        <dt>Officer</dt><dd>{{ case.officer_name or 'Not assigned yet' }}</dd>
+        <dt>Opened</dt><dd class="num">{{ case.date_opened }}</dd>
+      </dl>
+      {% if user.role != 'citizen' %}<p style="margin-top: var(--space-md)"><a class="btn" href="{{ url_for('cases.detail', case_id=case.case_id) }}">Open case file</a></p>{% endif %}
+      {% else %}
+      <p class="muted">{{ 'A case opens once the station verifies this complaint.' if c.status == 'Filed' else 'No case was opened.' if c.status == 'Rejected' else 'Verified. Waiting for the station to register a case.' }}</p>
+      {% endif %}
+    </section>
+
+    {% if user.role != 'citizen' and c.status != 'Rejected' and not case %}
+    <section class="panel">
+      <h2>Review</h2>
+      {% if c.status == 'Filed' %}
+      <form method="post" action="{{ url_for('complaints.verify', complaint_id=c.complaint_id) }}">
+        {{ csrf() }}<button class="btn btn--primary" type="submit">Verify complaint</button>
+      </form>
+      <details style="margin-top: var(--space-md)">
+        <summary>Reject with a reason</summary>
+        <form method="post" action="{{ url_for('complaints.reject', complaint_id=c.complaint_id) }}">
+          {{ csrf() }}
+          <div class="field"><label for="reason">Reason</label><textarea id="reason" name="reason" required></textarea></div>
+          <button class="btn btn--danger" type="submit">Reject complaint</button>
+        </form>
+      </details>
+      {% else %}
+      <form method="post" action="{{ url_for('complaints.open_case', complaint_id=c.complaint_id) }}">
+        {{ csrf() }}
+        <div class="field">
+          <label for="station_id">Station</label>
+          <select id="station_id" name="station_id" required>{% for s in stations %}<option value="{{ s.station_id }}">{{ s.name }}</option>{% endfor %}</select>
+        </div>
+        <button class="btn btn--primary" type="submit">Register case</button>
+      </form>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <section class="panel">
+      <h2>History</h2>
+      <ul class="trail">
+        {% for h in history %}
+        <li><span>{{ h.new_status }}{% if h.who %} <span class="muted">by {{ h.who }}</span>{% endif %}</span><span class="num muted">{{ h.changed_at[:10] }}</span></li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+</div>
+{% endblock %}

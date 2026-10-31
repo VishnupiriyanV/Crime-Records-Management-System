@@ -1,0 +1,25 @@
+{% macro nav_link(endpoint, label) %}
+  {% set href = url_for(endpoint) %}
+  {% set active = request.path == href or (request.path.startswith(href ~ '/') and request.path != href ~ '/new') %}
+  <a href="{{ href }}" {% if active %}aria-current="page"{% endif %}>{{ label }}</a>
+{% endmacro %}
+
+{% macro status_badge(status) %}
+  {% if status in ('Rejected',) %}<span class="badge badge--bad">{{ status }}</span>
+  {% elif status in ('Closed (Resolved)', 'Verified') %}<span class="badge badge--good">{{ status }}</span>
+  {% elif status in ('Under Investigation', 'Chargesheet Filed', 'Filed') %}<span class="badge badge--open">{{ status }}</span>
+  {% else %}<span class="badge">{{ status }}</span>{% endif %}
+{% endmacro %}
+
+{% macro csrf() %}<input type="hidden" name="csrf" value="{{ csrf_token() }}">{% endmacro %}
+
+{% macro pager(page, pages, total, endpoint) %}
+  {% set args = request.args.to_dict() %}
+  <div class="pager">
+    <span>{{ total }} result{{ '' if total == 1 else 's' }}, page {{ page }} of {{ pages }}</span>
+    <div>
+      {% if page > 1 %}<a class="btn btn--small" href="{{ url_for(endpoint, **dict(args, page=page - 1)) }}">Previous</a>{% endif %}
+      {% if page < pages %}<a class="btn btn--small" href="{{ url_for(endpoint, **dict(args, page=page + 1)) }}">Next</a>{% endif %}
+    </div>
+  </div>
+{% endmacro %}

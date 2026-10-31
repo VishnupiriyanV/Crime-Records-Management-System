@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+.pytest_cache/
+data/*.db
+data/secret.key
+.env
+.DS_Store
+
+# local tooling and planning notes stay out of the repo
+.claude/
+.hallmark/
+CLAUDE.md
+plan*.md
+PLAN*.md
