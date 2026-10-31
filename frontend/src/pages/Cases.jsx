@@ -1,6 +1,6 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api, withQuery } from '../api.js';
-import { Crumbs, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Status, useAct, useLoad } from '../ui.jsx';
+import { Attachments, Crumbs, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Status, useAct, useLoad } from '../ui.jsx';
 import { useSession } from '../session.jsx';
 
 export function Dashboard() {
@@ -120,7 +120,7 @@ export function Case() {
   if (loading) return <Loading />;
   if (error) return <Failed error={error} retry={error.status === 404 ? undefined : reload} />;
 
-  const { case: c, evidence, linked, available, reports, notes, history, officers, editable, next_states } = data;
+  const { case: c, evidence, linked, available, reports, notes, history, attachments, officers, editable, next_states } = data;
   const send = (path, body, ok, method = 'POST') => act(() => api(`/cases/${id}${path}`, { method, body }), ok);
   // reset the form once the write has gone through
   const submit = (path, ok, shape = (b) => b) => async (event) => {
@@ -154,6 +154,11 @@ export function Case() {
               <div className="note" key={i}><small>Citizen {n.kind}, {n.created_at}</small><div className="prose">{n.body}</div></div>
             ))}
             <p style={{ marginTop: 'var(--space-md)' }}><Link to={`/complaints/${c.complaint_id}`}>Open the original complaint</Link></p>
+          </section>
+
+          <section className="panel">
+            <h2>Files from the citizen</h2>
+            <Attachments items={attachments} />
           </section>
 
           <section className="panel">
@@ -248,7 +253,7 @@ export function Case() {
               <form onSubmit={submit('/assign', 'Officer assigned.', (b) => ({ officer_id: Number(b.officer_id) }))}>
                 <Field label="Officer" id="officer_id">
                   <select id="officer_id" name="officer_id" defaultValue={officers.find((o) => o.name === c.officer_name)?.officer_id}>
-                    {officers.map((o) => <option key={o.officer_id} value={o.officer_id}>{o.name}, {o.rank}</option>)}
+                    {officers.map((o) => <option key={o.officer_id} value={o.officer_id}>{o.name}, {o.officer_rank}</option>)}
                   </select>
                 </Field>
                 <button className="btn" type="submit">Assign</button>

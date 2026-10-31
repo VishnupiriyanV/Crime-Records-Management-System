@@ -9,19 +9,21 @@ from starlette.requests import Request
 from . import db, mongo
 from .auth import check_csrf
 from .lifecycle import RuleError
-from .main_config import ROOT, database_path, mongo_name, mongo_url, secret_key
-from .routes import account, admin, cases, complaints, criminals
+from .main_config import ROOT, database_url, mongo_name, mongo_url, secret_key, upload_dir
+from .routes import account, admin, attachments, cases, complaints, criminals
 
 DIST = ROOT / "frontend" / "dist"
 
 
-def create_app(database=None, secret=None, mongo_client=None):
-    path = database or database_path()
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
+def create_app(database=None, secret=None, mongo_client=None, uploads=None):
+    path = database or database_url()
+    if db.dialect_of(path) == "sqlite":
+        Path(path.removeprefix("sqlite:///")).parent.mkdir(parents=True, exist_ok=True)
     db.init_db(path)
     mongo.configure(mongo_url(), mongo_name(), client=mongo_client)
 
     app = FastAPI(title="Crime Records Management System", dependencies=[Depends(check_csrf)])
+    app.state.upload_dir = Path(uploads) if uploads else upload_dir()
 
     @app.middleware("http")
     async def connection(request: Request, call_next):
@@ -35,7 +37,7 @@ def create_app(database=None, secret=None, mongo_client=None):
         SessionMiddleware, secret_key=secret or secret_key(), same_site="lax", max_age=7 * 24 * 3600,
     )
 
-    for module in (account, complaints, cases, criminals, admin):
+    for module in (account, complaints, attachments, cases, criminals, admin):
         app.include_router(module.router)
 
     @app.exception_handler(RuleError)

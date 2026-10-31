@@ -75,11 +75,11 @@ def register_case(complaint_id, station_id, user_id):
     c = _complaint(complaint_id)
     if c["status"] != "Verified":
         raise RuleError("Only a verified complaint can become a case.")
-    if one('SELECT 1 FROM "case" WHERE complaint_id = ?', complaint_id):
+    if one('SELECT 1 FROM crime_case WHERE complaint_id = ?', complaint_id):
         raise RuleError("This complaint already has a case.")
     if not station_id or not one("SELECT 1 FROM police_station WHERE station_id = ?", station_id):
         raise RuleError("Pick a police station.")
-    case_id = run('INSERT INTO "case" (complaint_id, station_id) VALUES (?, ?)', complaint_id, station_id)
+    case_id = run('INSERT INTO crime_case (complaint_id, station_id) VALUES (?, ?)', complaint_id, station_id)
     log_status("case", case_id, None, "Under Investigation", user_id)
     notify(c["owner_id"], f"A case was opened for “{c['title']}”.", f"/complaints/{complaint_id}")
     get_db().commit()
@@ -87,12 +87,12 @@ def register_case(complaint_id, station_id, user_id):
 
 
 def change_case_status(case_id, new_status, user_id):
-    case = one('SELECT * FROM "case" WHERE case_id = ?', case_id)
+    case = one('SELECT * FROM crime_case WHERE case_id = ?', case_id)
     if case is None:
         raise RuleError("Case not found.")
     if new_status not in CASE_TRANSITIONS.get(case["status"], []):
         raise RuleError(f"A case cannot move from “{case['status']}” to “{new_status}”.")
-    run('UPDATE "case" SET status = ? WHERE case_id = ?', new_status, case_id)
+    run('UPDATE crime_case SET status = ? WHERE case_id = ?', new_status, case_id)
     log_status("case", case_id, case["status"], new_status, user_id)
     owner = _complaint(case["complaint_id"])
     notify(owner["owner_id"], f"Your case is now “{new_status}”.", f"/complaints/{case['complaint_id']}")
@@ -100,7 +100,7 @@ def change_case_status(case_id, new_status, user_id):
 
 
 def assign_officer(case_id, officer_id, user_id):
-    case = one('SELECT * FROM "case" WHERE case_id = ?', case_id)
+    case = one('SELECT * FROM crime_case WHERE case_id = ?', case_id)
     if case is None:
         raise RuleError("Case not found.")
     if is_closed(case["status"]):
@@ -112,7 +112,7 @@ def assign_officer(case_id, officer_id, user_id):
     )
     if officer is None:
         raise RuleError("Pick an active officer.")
-    run('UPDATE "case" SET officer_id = ? WHERE case_id = ?', officer_id, case_id)
+    run('UPDATE crime_case SET officer_id = ? WHERE case_id = ?', officer_id, case_id)
     log_status("case assignment", case_id, case["officer_id"], officer_id, user_id)
     get_db().commit()
     return officer["name"]

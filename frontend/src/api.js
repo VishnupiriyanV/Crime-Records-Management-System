@@ -22,3 +22,15 @@ export function withQuery(path, params) {
   const clean = Object.entries(params).filter(([, v]) => v !== '' && v != null);
   return clean.length ? `${path}?${new URLSearchParams(clean)}` : path;
 }
+
+// multipart upload; the browser sets the content type and boundary itself
+export async function upload(path, file) {
+  const body = new FormData();
+  body.append('file', file);
+  const res = await fetch(`/api${path}`, {
+    method: 'POST', credentials: 'same-origin', headers: { 'X-Requested-With': 'crms' }, body,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(data.detail || 'The upload failed.', res.status);
+  return data;
+}

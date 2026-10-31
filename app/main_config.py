@@ -5,8 +5,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def database_path():
-    return os.environ.get("CRMS_DATABASE", str(ROOT / "data" / "crms.db"))
+def database_url():
+    """sqlite:///file.db, postgresql://user:pass@host/db or mysql://user:pass@host/db"""
+    return os.environ.get("CRMS_DB_URL") or f"sqlite:///{ROOT / 'data' / 'crms.db'}"
 
 
 def secret_key():
@@ -25,3 +26,7 @@ def mongo_url():
 
 def mongo_name():
     return os.environ.get("MONGO_DB", "crms")
+
+
+def upload_dir():
+    return Path(os.environ.get("CRMS_UPLOADS", str(ROOT / "data" / "uploads")))

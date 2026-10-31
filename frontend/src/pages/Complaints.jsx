@@ -1,7 +1,7 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { api, withQuery } from '../api.js';
+import { api, upload, withQuery } from '../api.js';
 import { useSession } from '../session.jsx';
-import { Crumbs, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Status, useAct, useLoad } from '../ui.jsx';
+import { Attachments, Crumbs, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Status, useAct, useLoad } from '../ui.jsx';
 
 export function Complaints() {
   const { user } = useSession();
@@ -80,10 +80,16 @@ export function NewComplaint() {
   const { notice } = useSession();
 
   const submit = (event) => {
-    const body = formData(event);
+    const { file, ...body } = formData(event);
     return act(async () => {
       const { complaint_id } = await api('/complaints', { method: 'POST', body });
-      notice('Complaint filed. You will be notified when it is reviewed.', 'ok', true);
+      let message = 'Complaint filed. You will be notified when it is reviewed.';
+      if (file && file.size) {
+        // the complaint exists by now, so a rejected file should not lose it
+        try { await upload(`/complaints/${complaint_id}/attachments`, file); }
+        catch (err) { message = `Complaint filed, but the file was not added: ${err.message}`; }
+      }
+      notice(message, 'ok', true);
       navigate(`/complaints/${complaint_id}`);
     });
   };
@@ -98,6 +104,9 @@ export function NewComplaint() {
           <Field label="Where" id="location"><input id="location" name="location" maxLength={200} required /></Field>
           <Field label="Date of incident" id="incident_date"><input id="incident_date" name="incident_date" type="date" required /></Field>
         </div>
+        <Field label="Attach a file" id="file" hint="Optional. An image, PDF or text file, up to 5 MB.">
+          <input id="file" name="file" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt" />
+        </Field>
         <div className="row" style={{ marginTop: 'var(--space-md)' }}>
           <button className="btn btn--primary" type="submit">Submit complaint</button>
           <Link className="btn" to="/complaints">Cancel</Link>
@@ -116,7 +125,7 @@ export function Complaint() {
   if (loading) return <Loading />;
   if (error) return <Failed error={error} retry={error.status === 404 ? undefined : reload} />;
 
-  const { complaint: c, case: kase, notes, history, stations, can_add_note } = data;
+  const { complaint: c, case: kase, notes, history, attachments, stations, can_add_note } = data;
   const staff = user.role !== 'citizen';
   const post = (path, body, ok) => act(() => api(`/complaints/${id}${path}`, { method: 'POST', body }), ok);
 
@@ -125,6 +134,13 @@ export function Complaint() {
     const form = event.target;
     await post('/notes', body, 'Added to your complaint.');
     form.reset();
+  };
+  const addFile = async (event) => {
+    const { file } = formData(event);
+    const form = event.target;
+    if (!file || !file.size) return;
+    const done = await act(() => upload(`/complaints/${id}/attachments`, file), 'File added.');
+    if (done) form.reset();
   };
   const openCase = (event) => {
     const { station_id } = formData(event);
@@ -150,6 +166,19 @@ export function Complaint() {
               <dt>Description</dt><dd className="prose">{c.description}</dd>
               {c.status === 'Rejected' && <><dt>Reason</dt><dd>{c.reject_reason}</dd></>}
             </dl>
+          </section>
+
+          <section className="panel">
+            <h2>Files</h2>
+            <Attachments items={attachments} />
+            {can_add_note && attachments.length < 5 && (
+              <form onSubmit={addFile} style={{ marginTop: 'var(--space-md)' }}>
+                <Field label="Attach a file" id="file" hint="An image, PDF or text file, up to 5 MB.">
+                  <input id="file" name="file" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt" required />
+                </Field>
+                <button className="btn" type="submit">Upload</button>
+              </form>
+            )}
           </section>
 
           <section className="panel">

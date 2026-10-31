@@ -6,6 +6,7 @@ from ..db import get_db, many, one, run
 from ..forms import as_dict, as_dicts, need, page_number
 from ..lifecycle import RuleError, is_closed, log_status, register_case, reject_complaint, verify_complaint
 from ..mongo import clean, mdb, now
+from .attachments import list_for
 
 router = APIRouter(prefix="/api")
 
@@ -71,7 +72,7 @@ def index(status: str = "", q: str = "", page: str = "1", user=login_required())
         f"SELECT c.*, u.name AS citizen_name, cs.case_id, cs.status AS case_status"
         f" FROM complaint c JOIN citizen ct ON ct.citizen_id = c.citizen_id"
         f" JOIN users u ON u.user_id = ct.user_id"
-        f' LEFT JOIN "case" cs ON cs.complaint_id = c.complaint_id {clause}'
+        f' LEFT JOIN crime_case cs ON cs.complaint_id = c.complaint_id {clause}'
         f" ORDER BY c.complaint_id DESC LIMIT ? OFFSET ?",
         *args, PAGE_SIZE, (page - 1) * PAGE_SIZE,
     )
@@ -103,7 +104,7 @@ def create(body: NewComplaint, user=login_required("citizen")):
 def detail(complaint_id: int, user=login_required()):
     c = _load(complaint_id, user)
     case = one(
-        'SELECT cs.*, ps.name AS station, u.name AS officer_name FROM "case" cs'
+        'SELECT cs.*, ps.name AS station, u.name AS officer_name FROM crime_case cs'
         " JOIN police_station ps ON ps.station_id = cs.station_id"
         " LEFT JOIN officer o ON o.officer_id = cs.officer_id"
         " LEFT JOIN users u ON u.user_id = o.user_id WHERE cs.complaint_id = ?",
@@ -119,14 +120,14 @@ def detail(complaint_id: int, user=login_required()):
     )
     return {
         "complaint": dict(c), "case": as_dict(case), "notes": notes,
-        "history": history, "stations": as_dicts(stations), "can_add_note": can_add_note,
+        "history": history, "attachments": list_for(complaint_id), "stations": as_dicts(stations), "can_add_note": can_add_note,
     }
 
 
 @router.post("/complaints/{complaint_id}/notes")
 def add_note(complaint_id: int, body: Note, user=login_required("citizen")):
     c = _load(complaint_id, user)
-    case = one('SELECT status FROM "case" WHERE complaint_id = ?', complaint_id)
+    case = one('SELECT status FROM crime_case WHERE complaint_id = ?', complaint_id)
     if c["status"] == "Rejected" or (case and is_closed(case["status"])):
         raise RuleError("This complaint is closed to new notes.")
     if body.kind not in ("statement", "evidence"):

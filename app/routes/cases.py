@@ -8,6 +8,7 @@ from ..lifecycle import (
     CASE_STATUSES, CASE_TRANSITIONS, RuleError, assign_officer, change_case_status, is_closed,
 )
 from ..mongo import clean, mdb, now
+from .attachments import list_for
 
 router = APIRouter(prefix="/api")
 
@@ -16,7 +17,7 @@ PAGE_SIZE = 20
 CASE_SELECT = (
     'SELECT cs.*, c.title, c.location, c.description, c.incident_date, c.complaint_id,'
     " cu.name AS citizen_name, ps.name AS station, ou.name AS officer_name"
-    ' FROM "case" cs JOIN complaint c ON c.complaint_id = cs.complaint_id'
+    ' FROM crime_case cs JOIN complaint c ON c.complaint_id = cs.complaint_id'
     " JOIN citizen ct ON ct.citizen_id = c.citizen_id JOIN users cu ON cu.user_id = ct.user_id"
     " JOIN police_station ps ON ps.station_id = cs.station_id"
     " LEFT JOIN officer o ON o.officer_id = cs.officer_id LEFT JOIN users ou ON ou.user_id = o.user_id"
@@ -78,11 +79,11 @@ def dashboard(user=login_required("officer", "admin")):
     open_states = "('Under Investigation', 'Chargesheet Filed')"
     counts = {
         "awaiting": one("SELECT COUNT(*) AS n FROM complaint WHERE status = 'Filed'")["n"],
-        "open": one(f'SELECT COUNT(*) AS n FROM "case" WHERE status IN {open_states}')["n"],
+        "open": one(f'SELECT COUNT(*) AS n FROM crime_case WHERE status IN {open_states}')["n"],
         "mine": one(
-            f'SELECT COUNT(*) AS n FROM "case" WHERE officer_id = ? AND status IN {open_states}', mine
+            f'SELECT COUNT(*) AS n FROM crime_case WHERE officer_id = ? AND status IN {open_states}', mine
         )["n"] if mine else 0,
-        "closed": one("SELECT COUNT(*) AS n FROM \"case\" WHERE status LIKE 'Closed%'")["n"],
+        "closed": one("SELECT COUNT(*) AS n FROM crime_case WHERE status LIKE 'Closed%'")["n"],
     }
     queue = many(
         "SELECT c.*, u.name AS citizen_name FROM complaint c"
@@ -122,7 +123,7 @@ def index(
     clause = ("WHERE " + " AND ".join(where)) if where else ""
 
     total = one(
-        'SELECT COUNT(*) AS n FROM "case" cs JOIN complaint c ON c.complaint_id = cs.complaint_id'
+        'SELECT COUNT(*) AS n FROM crime_case cs JOIN complaint c ON c.complaint_id = cs.complaint_id'
         " JOIN citizen ct ON ct.citizen_id = c.citizen_id JOIN users cu ON cu.user_id = ct.user_id " + clause,
         *args,
     )["n"]
@@ -157,14 +158,15 @@ def detail(case_id: int, user=login_required("officer", "admin")):
     )
     notes = clean(mdb().notes.find({"complaint_id": case["complaint_id"]}).sort("_id", 1))
     history = clean(mdb().status_log.find({"entity": "case", "entity_id": case_id}).sort("_id", 1))
+    attachments = list_for(case["complaint_id"])
     officers = many(
-        "SELECT o.officer_id, u.name, o.rank FROM officer o JOIN users u ON u.user_id = o.user_id"
+        "SELECT o.officer_id, u.name, o.officer_rank FROM officer o JOIN users u ON u.user_id = o.user_id"
         " WHERE u.active = 1 ORDER BY u.name"
     ) if user["role"] == "admin" else []
     return {
         "case": dict(case), "evidence": evidence, "linked": as_dicts(linked),
         "available": as_dicts(available), "reports": as_dicts(reports), "notes": notes,
-        "history": history, "officers": as_dicts(officers),
+        "history": history, "attachments": attachments, "officers": as_dicts(officers),
         "editable": can_edit(case, user), "next_states": CASE_TRANSITIONS[case["status"]],
     }
 
@@ -202,8 +204,10 @@ def link_criminal(case_id: int, body: Link, user=login_required("officer", "admi
         raise RuleError("Pick a criminal record.")
     if body.role not in ("suspect", "accused", "witness", "victim"):
         raise RuleError("Pick a role.")
+    # relinking someone changes their role, so replace any earlier link
+    run("DELETE FROM case_criminal WHERE case_id = ? AND criminal_id = ?", case_id, body.criminal_id)
     run(
-        "INSERT OR REPLACE INTO case_criminal (case_id, criminal_id, role) VALUES (?, ?, ?)",
+        "INSERT INTO case_criminal (case_id, criminal_id, role) VALUES (?, ?, ?)",
         case_id, body.criminal_id, body.role,
     )
     get_db().commit()

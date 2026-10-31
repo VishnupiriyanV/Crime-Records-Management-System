@@ -67,7 +67,7 @@ def detail(criminal_id: int, user=login_required("officer", "admin")):
         raise HTTPException(404, "That record does not exist.")
     cases = many(
         'SELECT cs.case_id, cs.status, cs.date_opened, c.title, cc.role FROM case_criminal cc'
-        ' JOIN "case" cs ON cs.case_id = cc.case_id JOIN complaint c ON c.complaint_id = cs.complaint_id'
+        ' JOIN crime_case cs ON cs.case_id = cc.case_id JOIN complaint c ON c.complaint_id = cs.complaint_id'
         " WHERE cc.criminal_id = ? ORDER BY cs.case_id DESC",
         criminal_id,
     )

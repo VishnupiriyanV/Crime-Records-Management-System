@@ -104,3 +104,34 @@ def test_evidence_and_notes_are_stored_in_mongo(app, make_client):
     assert [e["evidence_no"] for e in case["evidence"]] == [1, 2]
     assert case["notes"][0]["body"] == "I saw it happen."
     assert [h["new_status"] for h in case["history"]] == ["Under Investigation"]
+
+
+def upload(client, name="photo.png", data=b"\x89PNG fake", kind="image/png"):
+    return client.post("/api/complaints/1/attachments", files={"file": (name, data, kind)})
+
+
+def test_attachments(make_client):
+    asha, bina, admin = make_client("asha@t.test"), make_client("bina@t.test"), make_client("admin@t.test")
+    file_complaint(asha)
+
+    assert upload(asha).status_code == 200
+    listed = asha.get("/api/complaints/1").json()["attachments"]
+    assert listed[0]["filename"] == "photo.png" and "stored" not in listed[0]
+    attachment_id = listed[0]["attachment_id"]
+
+    # the owner and staff can download it; another citizen cannot
+    assert asha.get(f"/api/attachments/{attachment_id}").content == b"\x89PNG fake"
+    assert admin.get(f"/api/attachments/{attachment_id}").status_code == 200
+    assert bina.get(f"/api/attachments/{attachment_id}").status_code == 404
+
+    assert upload(asha, name="run.exe", kind="application/octet-stream").status_code == 400
+    assert upload(asha, name="big.pdf", data=b"x" * (5 * 1024 * 1024 + 1), kind="application/pdf").status_code == 400
+    assert upload(bina).status_code == 404
+    assert upload(admin).status_code == 403
+
+
+def test_attachment_limit_per_complaint(make_client):
+    asha = make_client("asha@t.test")
+    file_complaint(asha)
+    codes = [upload(asha, name=f"f{i}.txt", data=b"hi", kind="text/plain").status_code for i in range(6)]
+    assert codes == [200] * 5 + [400]

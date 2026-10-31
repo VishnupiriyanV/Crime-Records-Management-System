@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS officer (
     officer_id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id    INTEGER NOT NULL UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
     badge_no   TEXT NOT NULL UNIQUE,
-    rank       TEXT NOT NULL,
+    officer_rank TEXT NOT NULL,
     station_id INTEGER NOT NULL REFERENCES police_station(station_id)
 );
 
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS complaint (
 );
 
 -- at most one case per complaint, enforced by the UNIQUE on complaint_id
-CREATE TABLE IF NOT EXISTS "case" (
+CREATE TABLE IF NOT EXISTS crime_case (
     case_id      INTEGER PRIMARY KEY AUTOINCREMENT,
     complaint_id INTEGER NOT NULL UNIQUE REFERENCES complaint(complaint_id),
     officer_id   INTEGER REFERENCES officer(officer_id) ON DELETE SET NULL,
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS criminal (
 
 -- junction table for Case INVOLVES Criminal (many to many)
 CREATE TABLE IF NOT EXISTS case_criminal (
-    case_id     INTEGER NOT NULL REFERENCES "case"(case_id) ON DELETE CASCADE,
+    case_id     INTEGER NOT NULL REFERENCES crime_case(case_id) ON DELETE CASCADE,
     criminal_id INTEGER NOT NULL REFERENCES criminal(criminal_id) ON DELETE CASCADE,
     role        TEXT NOT NULL DEFAULT 'suspect',
     PRIMARY KEY (case_id, criminal_id)
@@ -77,29 +77,22 @@ CREATE TABLE IF NOT EXISTS case_criminal (
 
 CREATE TABLE IF NOT EXISTS report (
     report_id      INTEGER PRIMARY KEY AUTOINCREMENT,
-    case_id        INTEGER NOT NULL REFERENCES "case"(case_id) ON DELETE CASCADE,
+    case_id        INTEGER NOT NULL REFERENCES crime_case(case_id) ON DELETE CASCADE,
     officer_id     INTEGER REFERENCES officer(officer_id) ON DELETE SET NULL,
     content        TEXT NOT NULL,
     date_generated TEXT NOT NULL DEFAULT (date('now'))
 );
 
-CREATE TABLE IF NOT EXISTS session (
-    sid        TEXT PRIMARY KEY,
-    user_id    INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
-    flash      TEXT,
-    expires_at INTEGER NOT NULL
-);
-
 CREATE INDEX IF NOT EXISTS idx_complaint_citizen ON complaint(citizen_id);
 CREATE INDEX IF NOT EXISTS idx_complaint_status  ON complaint(status);
-CREATE INDEX IF NOT EXISTS idx_case_status       ON "case"(status);
-CREATE INDEX IF NOT EXISTS idx_case_officer      ON "case"(officer_id);
+CREATE INDEX IF NOT EXISTS idx_case_status       ON crime_case(status);
+CREATE INDEX IF NOT EXISTS idx_case_officer      ON crime_case(officer_id);
 CREATE INDEX IF NOT EXISTS idx_criminal_name     ON criminal(name);
 
 CREATE VIEW IF NOT EXISTS v_cases_by_status AS
-    SELECT status, COUNT(*) AS total FROM "case" GROUP BY status;
+    SELECT status, COUNT(*) AS total FROM crime_case GROUP BY status;
 
 CREATE VIEW IF NOT EXISTS v_cases_by_station AS
     SELECT ps.name AS station, COUNT(c.case_id) AS total
-    FROM police_station ps LEFT JOIN "case" c ON c.station_id = ps.station_id
-    GROUP BY ps.station_id;
+    FROM police_station ps LEFT JOIN crime_case c ON c.station_id = ps.station_id
+    GROUP BY ps.station_id, ps.name;

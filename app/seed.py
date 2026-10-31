@@ -2,13 +2,13 @@
 from . import db
 from .auth import hash_password
 from .db import one, run
-from .main_config import database_path
+from .main_config import database_url
 
 DEMO_PASSWORD = "password123"
 
 
 def seed():
-    path = database_path()
+    path = database_url()
     db.init_db(path)
     token = db.use(db.connect(path))
     try:
@@ -30,7 +30,7 @@ def seed():
 
         run("INSERT INTO admin (user_id) VALUES (?)", add_user("Station Admin", "admin@crms.test", "admin"))
         run(
-            "INSERT INTO officer (user_id, badge_no, rank, station_id) VALUES (?, ?, ?, ?)",
+            "INSERT INTO officer (user_id, badge_no, officer_rank, station_id) VALUES (?, ?, ?, ?)",
             add_user("Officer Rao", "officer@crms.test", "officer"), "B-1001", "Inspector", 1,
         )
         run(
