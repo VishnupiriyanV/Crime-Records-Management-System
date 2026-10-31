@@ -1,5 +1,6 @@
 """Status rules for complaints and cases (FR-07, FR-08, FR-09, FR-12)."""
 from .db import get_db, one, run
+from .mongo import mdb, now
 
 # the only moves a case may make
 CASE_TRANSITIONS = {
@@ -20,15 +21,17 @@ def is_closed(status):
 
 
 def log_status(entity, entity_id, old, new, user_id):
-    run(
-        "INSERT INTO status_log (entity, entity_id, old_status, new_status, user_id)"
-        " VALUES (?, ?, ?, ?, ?)",
-        entity, entity_id, old, new, user_id,
-    )
+    who = one("SELECT name FROM users WHERE user_id = ?", user_id)
+    mdb().status_log.insert_one({
+        "entity": entity, "entity_id": entity_id, "old_status": old, "new_status": new,
+        "user_id": user_id, "who": who["name"] if who else None, "changed_at": now(),
+    })
 
 
 def notify(user_id, message, link=None):
-    run("INSERT INTO notification (user_id, message, link) VALUES (?, ?, ?)", user_id, message, link)
+    mdb().notifications.insert_one(
+        {"user_id": user_id, "message": message, "link": link, "seen": False, "created_at": now()}
+    )
 
 
 def _complaint(complaint_id):

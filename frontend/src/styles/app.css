@@ -5,7 +5,8 @@
 @import url("./tokens.css");
 @import url("./base.css");
 
-body { font-size: var(--text-sm); color: var(--color-ink-2); min-height: 100vh; display: flex; flex-direction: column; }
+body { font-size: var(--text-sm); color: var(--color-ink-2); }
+#root { min-height: 100vh; display: flex; flex-direction: column; }
 h1 { font-size: var(--text-xl); max-width: none; letter-spacing: var(--tracking-display); }
 h2 { font-size: var(--text-lg); max-width: none; }
 h3 { font-size: var(--text-md); }
@@ -139,3 +140,8 @@ footer { padding: var(--space-md) 0; border-top: var(--rule-hair) solid var(--co
   dl.facts dd { margin-bottom: var(--space-xs); }
   .panel { padding-inline: var(--space-md); }
 }
+
+/* loading placeholders, shaped like the rows that will replace them */
+.skeleton { height: 14px; margin: var(--space-md) 0; background: var(--color-paper-2); }
+.skeleton.short { width: 40%; }
+.stats--three { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: var(--space-lg) 0 0; }

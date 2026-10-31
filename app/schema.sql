@@ -75,51 +75,12 @@ CREATE TABLE IF NOT EXISTS case_criminal (
     PRIMARY KEY (case_id, criminal_id)
 );
 
--- weak entity: the case key plus its own running number
-CREATE TABLE IF NOT EXISTS evidence (
-    case_id        INTEGER NOT NULL REFERENCES "case"(case_id) ON DELETE CASCADE,
-    evidence_no    INTEGER NOT NULL,
-    type           TEXT NOT NULL,
-    description    TEXT NOT NULL,
-    date_collected TEXT NOT NULL DEFAULT (date('now')),
-    PRIMARY KEY (case_id, evidence_no)
-);
-
 CREATE TABLE IF NOT EXISTS report (
     report_id      INTEGER PRIMARY KEY AUTOINCREMENT,
     case_id        INTEGER NOT NULL REFERENCES "case"(case_id) ON DELETE CASCADE,
     officer_id     INTEGER REFERENCES officer(officer_id) ON DELETE SET NULL,
     content        TEXT NOT NULL,
     date_generated TEXT NOT NULL DEFAULT (date('now'))
-);
-
--- statements and extra evidence a citizen adds to their own complaint
-CREATE TABLE IF NOT EXISTS complaint_note (
-    note_id      INTEGER PRIMARY KEY AUTOINCREMENT,
-    complaint_id INTEGER NOT NULL REFERENCES complaint(complaint_id) ON DELETE CASCADE,
-    kind         TEXT NOT NULL CHECK (kind IN ('statement', 'evidence')),
-    body         TEXT NOT NULL,
-    created_at   TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS notification (
-    notification_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id         INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    message         TEXT NOT NULL,
-    link            TEXT,
-    seen            INTEGER NOT NULL DEFAULT 0,
-    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
--- audit trail for every status change
-CREATE TABLE IF NOT EXISTS status_log (
-    log_id     INTEGER PRIMARY KEY AUTOINCREMENT,
-    entity     TEXT NOT NULL,
-    entity_id  INTEGER NOT NULL,
-    old_status TEXT,
-    new_status TEXT NOT NULL,
-    user_id    INTEGER REFERENCES users(user_id),
-    changed_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS session (
@@ -134,7 +95,6 @@ CREATE INDEX IF NOT EXISTS idx_complaint_status  ON complaint(status);
 CREATE INDEX IF NOT EXISTS idx_case_status       ON "case"(status);
 CREATE INDEX IF NOT EXISTS idx_case_officer      ON "case"(officer_id);
 CREATE INDEX IF NOT EXISTS idx_criminal_name     ON criminal(name);
-CREATE INDEX IF NOT EXISTS idx_notification_user ON notification(user_id, seen);
 
 CREATE VIEW IF NOT EXISTS v_cases_by_status AS
     SELECT status, COUNT(*) AS total FROM "case" GROUP BY status;

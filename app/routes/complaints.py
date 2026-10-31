@@ -1,23 +1,42 @@
-from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from ..auth import is_staff, login_required
 from ..db import get_db, many, one, run
-from ..forms import field, int_field
-from ..lifecycle import (
-    RuleError, is_closed, register_case, reject_complaint, verify_complaint,
-)
+from ..forms import as_dict, as_dicts, need, page_number
+from ..lifecycle import RuleError, is_closed, log_status, register_case, reject_complaint, verify_complaint
+from ..mongo import clean, mdb, now
 
-bp = Blueprint("complaints", __name__)
+router = APIRouter(prefix="/api")
 
 PAGE_SIZE = 20
 
 
-def _citizen_id():
-    row = one("SELECT citizen_id FROM citizen WHERE user_id = ?", g.user["user_id"])
-    return row["citizen_id"]
+class NewComplaint(BaseModel):
+    title: str = ""
+    description: str = ""
+    location: str = ""
+    incident_date: str = ""
 
 
-def _load(complaint_id):
+class Note(BaseModel):
+    kind: str = ""
+    body: str = ""
+
+
+class Reject(BaseModel):
+    reason: str = ""
+
+
+class OpenCase(BaseModel):
+    station_id: int | None = None
+
+
+def _citizen_id(user):
+    return one("SELECT citizen_id FROM citizen WHERE user_id = ?", user["user_id"])["citizen_id"]
+
+
+def _load(complaint_id, user):
     """Fetch a complaint the current user is allowed to see."""
     c = one(
         "SELECT c.*, u.name AS citizen_name, u.user_id AS owner_id FROM complaint c"
@@ -25,24 +44,20 @@ def _load(complaint_id):
         " JOIN users u ON u.user_id = ct.user_id WHERE c.complaint_id = ?",
         complaint_id,
     )
-    if c is None:
-        abort(404)
-    if not is_staff() and c["owner_id"] != g.user["user_id"]:
-        abort(404)  # a citizen should not learn that other complaints exist
+    # a citizen should not learn that other people's complaints exist
+    if c is None or (not is_staff(user) and c["owner_id"] != user["user_id"]):
+        raise HTTPException(404, "That complaint does not exist.")
     return c
 
 
-@bp.get("/complaints")
-@login_required()
-def index():
-    status = request.args.get("status", "")
-    q = request.args.get("q", "").strip()
-    page = max(int_field_arg("page") or 1, 1)
-
+@router.get("/complaints")
+def index(status: str = "", q: str = "", page: str = "1", user=login_required()):
+    q = q.strip()
+    page = page_number(page)
     where, args = [], []
-    if g.user["role"] == "citizen":
+    if user["role"] == "citizen":
         where.append("c.citizen_id = ?")
-        args.append(_citizen_id())
+        args.append(_citizen_id(user))
     if status in ("Filed", "Verified", "Rejected"):
         where.append("c.status = ?")
         args.append(status)
@@ -56,57 +71,37 @@ def index():
         f"SELECT c.*, u.name AS citizen_name, cs.case_id, cs.status AS case_status"
         f" FROM complaint c JOIN citizen ct ON ct.citizen_id = c.citizen_id"
         f" JOIN users u ON u.user_id = ct.user_id"
-        f" LEFT JOIN \"case\" cs ON cs.complaint_id = c.complaint_id {clause}"
+        f' LEFT JOIN "case" cs ON cs.complaint_id = c.complaint_id {clause}'
         f" ORDER BY c.complaint_id DESC LIMIT ? OFFSET ?",
         *args, PAGE_SIZE, (page - 1) * PAGE_SIZE,
     )
-    return render_template(
-        "complaints.html", title="Complaints", rows=rows, status=status, q=q,
-        page=page, pages=max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1), total=total,
+    return {
+        "items": as_dicts(rows), "page": page, "total": total,
+        "pages": max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1),
+    }
+
+
+@router.post("/complaints")
+def create(body: NewComplaint, user=login_required("citizen")):
+    values = (
+        need(body.title, "Title", 120),
+        need(body.description, "Description", 4000),
+        need(body.location, "Location", 200),
+        need(body.incident_date, "Incident date", 10),
     )
+    complaint_id = run(
+        "INSERT INTO complaint (citizen_id, title, description, location, incident_date)"
+        " VALUES (?, ?, ?, ?, ?)",
+        _citizen_id(user), *values,
+    )
+    get_db().commit()
+    log_status("complaint", complaint_id, None, "Filed", user["user_id"])
+    return {"complaint_id": complaint_id}
 
 
-def int_field_arg(name):
-    try:
-        return int(request.args.get(name, ""))
-    except ValueError:
-        return None
-
-
-@bp.route("/complaints/new", methods=["GET", "POST"])
-@login_required("citizen")
-def new():
-    if request.method == "POST":
-        try:
-            values = (
-                field("title", "Title", 120),
-                field("description", "Description", 4000),
-                field("location", "Location", 200),
-                field("incident_date", "Incident date", 10),
-            )
-        except RuleError as err:
-            flash(str(err), "error")
-            return render_template("complaint_new.html", title="File a complaint", form=request.form), 400
-        complaint_id = run(
-            "INSERT INTO complaint (citizen_id, title, description, location, incident_date)"
-            " VALUES (?, ?, ?, ?, ?)",
-            _citizen_id(), *values,
-        )
-        run(
-            "INSERT INTO status_log (entity, entity_id, old_status, new_status, user_id)"
-            " VALUES ('complaint', ?, NULL, 'Filed', ?)",
-            complaint_id, g.user["user_id"],
-        )
-        get_db().commit()
-        flash("Complaint filed. You will be notified when it is reviewed.", "ok")
-        return redirect(url_for("complaints.detail", complaint_id=complaint_id))
-    return render_template("complaint_new.html", title="File a complaint", form={})
-
-
-@bp.get("/complaints/<int:complaint_id>")
-@login_required()
-def detail(complaint_id):
-    c = _load(complaint_id)
+@router.get("/complaints/{complaint_id}")
+def detail(complaint_id: int, user=login_required()):
+    c = _load(complaint_id, user)
     case = one(
         'SELECT cs.*, ps.name AS station, u.name AS officer_name FROM "case" cs'
         " JOIN police_station ps ON ps.station_id = cs.station_id"
@@ -114,62 +109,47 @@ def detail(complaint_id):
         " LEFT JOIN users u ON u.user_id = o.user_id WHERE cs.complaint_id = ?",
         complaint_id,
     )
-    notes = many("SELECT * FROM complaint_note WHERE complaint_id = ? ORDER BY note_id", complaint_id)
-    history = many(
-        "SELECT l.*, u.name AS who FROM status_log l LEFT JOIN users u ON u.user_id = l.user_id"
-        " WHERE l.entity = 'complaint' AND l.entity_id = ? ORDER BY l.log_id",
-        complaint_id,
-    )
-    stations = many("SELECT * FROM police_station ORDER BY name") if is_staff() else []
+    notes = clean(mdb().notes.find({"complaint_id": complaint_id}).sort("_id", 1))
+    history = clean(mdb().status_log.find({"entity": "complaint", "entity_id": complaint_id}).sort("_id", 1))
+    stations = many("SELECT * FROM police_station ORDER BY name") if is_staff(user) else []
     can_add_note = (
-        g.user["user_id"] == c["owner_id"]
+        user["user_id"] == c["owner_id"]
         and c["status"] != "Rejected"
         and not (case and is_closed(case["status"]))
     )
-    return render_template(
-        "complaint.html", title=c["title"], c=c, case=case, notes=notes,
-        history=history, stations=stations, can_add_note=can_add_note,
-    )
+    return {
+        "complaint": dict(c), "case": as_dict(case), "notes": notes,
+        "history": history, "stations": as_dicts(stations), "can_add_note": can_add_note,
+    }
 
 
-@bp.post("/complaints/<int:complaint_id>/notes")
-@login_required("citizen")
-def add_note(complaint_id):
-    c = _load(complaint_id)
+@router.post("/complaints/{complaint_id}/notes")
+def add_note(complaint_id: int, body: Note, user=login_required("citizen")):
+    c = _load(complaint_id, user)
     case = one('SELECT status FROM "case" WHERE complaint_id = ?', complaint_id)
     if c["status"] == "Rejected" or (case and is_closed(case["status"])):
         raise RuleError("This complaint is closed to new notes.")
-    kind = request.form.get("kind")
-    if kind not in ("statement", "evidence"):
+    if body.kind not in ("statement", "evidence"):
         raise RuleError("Pick statement or evidence.")
-    run(
-        "INSERT INTO complaint_note (complaint_id, kind, body) VALUES (?, ?, ?)",
-        complaint_id, kind, field("body", "Note", 4000),
-    )
-    get_db().commit()
-    flash("Added to your complaint.", "ok")
-    return redirect(url_for("complaints.detail", complaint_id=complaint_id))
+    mdb().notes.insert_one({
+        "complaint_id": complaint_id, "kind": body.kind,
+        "body": need(body.body, "Note", 4000), "created_at": now(),
+    })
+    return {"ok": True}
 
 
-@bp.post("/complaints/<int:complaint_id>/verify")
-@login_required("officer", "admin")
-def verify(complaint_id):
-    verify_complaint(complaint_id, g.user["user_id"])
-    flash("Complaint verified.", "ok")
-    return redirect(url_for("complaints.detail", complaint_id=complaint_id))
+@router.post("/complaints/{complaint_id}/verify")
+def verify(complaint_id: int, user=login_required("officer", "admin")):
+    verify_complaint(complaint_id, user["user_id"])
+    return {"ok": True}
 
 
-@bp.post("/complaints/<int:complaint_id>/reject")
-@login_required("officer", "admin")
-def reject(complaint_id):
-    reject_complaint(complaint_id, field("reason", "A reason", 500, required=False), g.user["user_id"])
-    flash("Complaint rejected.", "ok")
-    return redirect(url_for("complaints.detail", complaint_id=complaint_id))
+@router.post("/complaints/{complaint_id}/reject")
+def reject(complaint_id: int, body: Reject, user=login_required("officer", "admin")):
+    reject_complaint(complaint_id, need(body.reason, "A reason", 500, required=False), user["user_id"])
+    return {"ok": True}
 
 
-@bp.post("/complaints/<int:complaint_id>/register-case")
-@login_required("officer", "admin")
-def open_case(complaint_id):
-    case_id = register_case(complaint_id, int_field("station_id"), g.user["user_id"])
-    flash("Case registered.", "ok")
-    return redirect(url_for("cases.detail", case_id=case_id))
+@router.post("/complaints/{complaint_id}/register-case")
+def open_case(complaint_id: int, body: OpenCase, user=login_required("officer", "admin")):
+    return {"case_id": register_case(complaint_id, body.station_id, user["user_id"])}

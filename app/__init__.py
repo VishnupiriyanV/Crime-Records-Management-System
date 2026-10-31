@@ -1,83 +1,60 @@
-import os
-import secrets
 from pathlib import Path
 
-from flask import Flask, flash, g, redirect, render_template, request
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.requests import Request
 
-from . import db
-from .auth import check_csrf, csrf_token, load_user
-from .db import one
+from . import db, mongo
+from .auth import check_csrf
 from .lifecycle import RuleError
+from .main_config import ROOT, database_path, mongo_name, mongo_url, secret_key
+from .routes import account, admin, cases, complaints, criminals
 
-ROOT = Path(__file__).resolve().parent.parent
-
-
-def _secret_key():
-    if os.environ.get("CRMS_SECRET"):
-        return os.environ["CRMS_SECRET"]
-    key_file = ROOT / "data" / "secret.key"
-    if not key_file.exists():
-        key_file.parent.mkdir(exist_ok=True)
-        key_file.write_text(secrets.token_hex(32))
-    return key_file.read_text().strip()
+DIST = ROOT / "frontend" / "dist"
 
 
-def create_app(config=None):
-    app = Flask(__name__)
-    app.config.update(
-        DATABASE=str(ROOT / "data" / "crms.db"),
-        SESSION_COOKIE_SAMESITE="Lax",
-        SESSION_COOKIE_HTTPONLY=True,
+def create_app(database=None, secret=None, mongo_client=None):
+    path = database or database_path()
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    db.init_db(path)
+    mongo.configure(mongo_url(), mongo_name(), client=mongo_client)
+
+    app = FastAPI(title="Crime Records Management System", dependencies=[Depends(check_csrf)])
+
+    @app.middleware("http")
+    async def connection(request: Request, call_next):
+        token = db.use(db.connect(path))
+        try:
+            return await call_next(request)
+        finally:
+            db.release(token)
+
+    app.add_middleware(
+        SessionMiddleware, secret_key=secret or secret_key(), same_site="lax", max_age=7 * 24 * 3600,
     )
-    if config:
-        app.config.update(config)
-    if not app.config.get("SECRET_KEY"):
-        app.config["SECRET_KEY"] = _secret_key()
-
-    Path(app.config["DATABASE"]).parent.mkdir(parents=True, exist_ok=True)
-    app.teardown_appcontext(db.close_db)
-    with app.app_context():
-        db.init_db()
-
-    from .routes import account, admin, cases, complaints, criminals
 
     for module in (account, complaints, cases, criminals, admin):
-        app.register_blueprint(module.bp)
+        app.include_router(module.router)
 
-    app.before_request(load_user)
-    app.before_request(check_csrf)
-    app.jinja_env.globals["csrf_token"] = csrf_token
+    @app.exception_handler(RuleError)
+    async def rule_error(request: Request, exc: RuleError):
+        return JSONResponse({"detail": str(exc)}, status_code=400)
 
-    @app.context_processor
-    def inject_user():
-        unread = 0
-        if g.get("user"):
-            unread = one(
-                "SELECT COUNT(*) AS n FROM notification WHERE user_id = ? AND seen = 0",
-                g.user["user_id"],
-            )["n"]
-        return {"user": g.get("user"), "unread": unread}
+    @app.exception_handler(RequestValidationError)
+    async def bad_input(request: Request, exc: RequestValidationError):
+        return JSONResponse({"detail": "That request could not be read."}, status_code=400)
 
-    @app.errorhandler(RuleError)
-    def rule_error(err):
-        # send the user back to the form they came from with the reason
-        if request.referrer:
-            flash(str(err), "error")
-            return redirect(request.referrer)
-        return render_template("error.html", title="Not allowed", message=str(err)), 400
+    # the built React app; any non-API path falls back to index.html so client routes work
+    if DIST.exists():
+        @app.get("/{path:path}", include_in_schema=False)
+        def frontend(path: str):
+            if path.startswith("api/"):
+                raise HTTPException(404, "Not found.")
+            target = (DIST / path).resolve()
+            if path and target.is_file() and DIST in target.parents:
+                return FileResponse(target)
+            return FileResponse(DIST / "index.html")
 
-    def show_error(err):
-        code = err.code
-        messages = {
-            403: "Your role cannot open this page.",
-            404: "That page does not exist.",
-        }
-        message = messages.get(code, err.description)
-        return render_template("error.html", title=err.name, message=message), code
-
-    for code in (400, 403, 404):
-        app.register_error_handler(code, show_error)
-
-    from . import cli
-    cli.register(app)
     return app

@@ -1,110 +1,116 @@
-from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for
-from werkzeug.security import check_password_hash, generate_password_hash
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+from starlette.requests import Request
 
-from ..auth import login_required
+from ..auth import current_user, hash_password, login_required, verify_password
 from ..db import get_db, many, one, run
-from ..forms import field
+from ..forms import as_dict, as_dicts, need
 from ..lifecycle import RuleError
+from ..mongo import clean, mdb
 
-bp = Blueprint("account", __name__)
-
-
-def home_for(user):
-    return url_for("complaints.index") if user["role"] == "citizen" else url_for("cases.dashboard")
+router = APIRouter(prefix="/api")
 
 
-@bp.get("/")
-def index():
-    if g.user is None:
-        return redirect(url_for("account.login"))
-    return redirect(home_for(g.user))
+class Login(BaseModel):
+    email: str = ""
+    password: str = ""
 
 
-@bp.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        email = request.form.get("email", "").strip().lower()
-        user = one("SELECT * FROM users WHERE email = ?", email)
-        if user and user["active"] and check_password_hash(user["password"], request.form.get("password", "")):
-            session.clear()
-            session["user_id"] = user["user_id"]
-            target = request.args.get("next", "")
-            return redirect(target if target.startswith("/") and not target.startswith("//") else home_for(user))
-        flash("Email or password is wrong.", "error")
-    return render_template("login.html", title="Sign in")
+class Register(Login):
+    name: str = ""
 
 
-@bp.route("/register", methods=["GET", "POST"])
-def register():
-    if request.method == "POST":
-        try:
-            name = field("name", "Name", 100)
-            email = field("email", "Email", 200).lower()
-            password = field("password", "Password", 200)
-            if "@" not in email:
-                raise RuleError("Enter a valid email address.")
-            if len(password) < 8:
-                raise RuleError("Use at least 8 characters for the password.")
-            if one("SELECT 1 FROM users WHERE email = ?", email):
-                raise RuleError("An account with that email already exists.")
-        except RuleError as err:
-            flash(str(err), "error")
-            return render_template("register.html", title="Create account", form=request.form), 400
-        user_id = run(
-            "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'citizen')",
-            name, email, generate_password_hash(password),
-        )
-        run("INSERT INTO citizen (user_id) VALUES (?)", user_id)
-        get_db().commit()
-        session.clear()
-        session["user_id"] = user_id
-        flash("Your account is ready.", "ok")
-        return redirect(url_for("complaints.index"))
-    return render_template("register.html", title="Create account", form={})
+class Profile(BaseModel):
+    name: str = ""
+    address: str = ""
+    phone: str = ""
+    password: str = ""
 
 
-@bp.post("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("account.login"))
+def session_payload(user):
+    if user is None:
+        return {"user": None, "unread": 0}
+    unread = mdb().notifications.count_documents({"user_id": user["user_id"], "seen": False})
+    return {"user": {k: user[k] for k in ("user_id", "name", "email", "role")}, "unread": unread}
 
 
-@bp.route("/profile", methods=["GET", "POST"])
-@login_required()
-def profile():
-    uid = g.user["user_id"]
-    if request.method == "POST":
-        try:
-            name = field("name", "Name", 100)
-        except RuleError as err:
-            flash(str(err), "error")
-            return redirect(url_for("account.profile"))
-        run("UPDATE users SET name = ? WHERE user_id = ?", name, uid)
-        if g.user["role"] == "citizen":
-            run(
-                "UPDATE citizen SET address = ?, phone = ? WHERE user_id = ?",
-                field("address", "Address", 300, required=False),
-                field("phone", "Phone", 40, required=False),
-                uid,
-            )
-        new_password = request.form.get("password", "")
-        if new_password:
-            if len(new_password) < 8:
-                flash("Use at least 8 characters for the password.", "error")
-                return redirect(url_for("account.profile"))
-            run("UPDATE users SET password = ? WHERE user_id = ?", generate_password_hash(new_password), uid)
-        get_db().commit()
-        flash("Profile saved.", "ok")
-        return redirect(url_for("account.profile"))
-    extra = one("SELECT address, phone FROM citizen WHERE user_id = ?", uid) if g.user["role"] == "citizen" else None
-    return render_template("profile.html", title="Profile", extra=extra)
+@router.get("/auth/me")
+def me(request: Request):
+    return session_payload(current_user(request))
 
 
-@bp.get("/notifications")
-@login_required()
-def notifications():
-    uid = g.user["user_id"]
-    items = many("SELECT * FROM notification WHERE user_id = ? ORDER BY notification_id DESC LIMIT 100", uid)
-    run("UPDATE notification SET seen = 1 WHERE user_id = ?", uid)
+@router.post("/auth/login")
+def login(body: Login, request: Request):
+    user = one("SELECT * FROM users WHERE email = ?", body.email.strip().lower())
+    if not (user and user["active"] and verify_password(body.password, user["password"])):
+        raise HTTPException(400, "Email or password is wrong.")
+    request.session.clear()
+    request.session["user_id"] = user["user_id"]
+    request.state.user = user
+    return session_payload(user)
+
+
+@router.post("/auth/register")
+def register(body: Register, request: Request):
+    name = need(body.name, "Name", 100)
+    email = need(body.email, "Email", 200).lower()
+    password = need(body.password, "Password", 200)
+    if "@" not in email:
+        raise RuleError("Enter a valid email address.")
+    if len(password) < 8:
+        raise RuleError("Use at least 8 characters for the password.")
+    if one("SELECT 1 FROM users WHERE email = ?", email):
+        raise RuleError("An account with that email already exists.")
+    user_id = run(
+        "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'citizen')",
+        name, email, hash_password(password),
+    )
+    run("INSERT INTO citizen (user_id) VALUES (?)", user_id)
     get_db().commit()
-    return render_template("notifications.html", title="Notifications", items=items)
+    request.session.clear()
+    request.session["user_id"] = user_id
+    request.state.user = one("SELECT * FROM users WHERE user_id = ?", user_id)
+    return session_payload(request.state.user)
+
+
+@router.post("/auth/logout")
+def logout(request: Request):
+    request.session.clear()
+    return {"ok": True}
+
+
+@router.get("/profile")
+def get_profile(user=login_required()):
+    extra = None
+    if user["role"] == "citizen":
+        extra = as_dict(one("SELECT address, phone FROM citizen WHERE user_id = ?", user["user_id"]))
+    return {"extra": extra}
+
+
+@router.put("/profile")
+def update_profile(body: Profile, request: Request, user=login_required()):
+    uid = user["user_id"]
+    name = need(body.name, "Name", 100)
+    if body.password and len(body.password) < 8:
+        raise RuleError("Use at least 8 characters for the password.")
+    run("UPDATE users SET name = ? WHERE user_id = ?", name, uid)
+    if user["role"] == "citizen":
+        run(
+            "UPDATE citizen SET address = ?, phone = ? WHERE user_id = ?",
+            need(body.address, "Address", 300, required=False),
+            need(body.phone, "Phone", 40, required=False),
+            uid,
+        )
+    if body.password:
+        run("UPDATE users SET password = ? WHERE user_id = ?", hash_password(body.password), uid)
+    get_db().commit()
+    del request.state.user  # reload so the new name shows up
+    return session_payload(current_user(request))
+
+
+@router.get("/notifications")
+def notifications(user=login_required()):
+    uid = user["user_id"]
+    items = clean(mdb().notifications.find({"user_id": uid}).sort("_id", -1).limit(100))
+    mdb().notifications.update_many({"user_id": uid, "seen": False}, {"$set": {"seen": True}})
+    return {"items": items}

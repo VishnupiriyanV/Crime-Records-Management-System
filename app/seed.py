@@ -1,19 +1,20 @@
-import click
-from werkzeug.security import generate_password_hash
-
-from .db import get_db, one, run
+"""Load demo stations, accounts and criminal records: python -m app.seed"""
+from . import db
+from .auth import hash_password
+from .db import one, run
+from .main_config import database_path
 
 DEMO_PASSWORD = "password123"
 
 
-def register(app):
-    @app.cli.command("seed")
-    def seed():
-        """Load demo stations, accounts and criminal records."""
+def seed():
+    path = database_path()
+    db.init_db(path)
+    token = db.use(db.connect(path))
+    try:
         if one("SELECT 1 FROM users LIMIT 1"):
-            click.echo("The database already has users; nothing seeded.")
+            print("The database already has users; nothing seeded.")
             return
-        db = get_db()
         for name, area in (
             ("Central Station", "City centre and old town"),
             ("Riverside Station", "Riverside and the eastern wards"),
@@ -24,7 +25,7 @@ def register(app):
         def add_user(name, email, role):
             return run(
                 "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
-                name, email, generate_password_hash(DEMO_PASSWORD), role,
+                name, email, hash_password(DEMO_PASSWORD), role,
             )
 
         run("INSERT INTO admin (user_id) VALUES (?)", add_user("Station Admin", "admin@crms.test", "admin"))
@@ -45,5 +46,11 @@ def register(app):
                 "INSERT INTO criminal (name, age, crime_history, wanted) VALUES (?, ?, ?, ?)",
                 name, age, history, wanted,
             )
-        db.commit()
-        click.echo(f"Seeded. Sign in with admin@crms.test, officer@crms.test or citizen@crms.test ({DEMO_PASSWORD}).")
+        db.get_db().commit()
+        print(f"Seeded. Sign in with admin@crms.test, officer@crms.test or citizen@crms.test ({DEMO_PASSWORD}).")
+    finally:
+        db.release(token)
+
+
+if __name__ == "__main__":
+    seed()

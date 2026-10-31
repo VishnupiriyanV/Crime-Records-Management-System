@@ -1,18 +1,24 @@
-from flask import request
-
 from .lifecycle import RuleError
 
 
-def field(name, label, limit=2000, required=True):
-    value = request.form.get(name, "").strip()[:limit]
-    if required and not value:
+def need(value, label, limit=2000, required=True):
+    """Trim and length-limit a text field; raise a user-facing error when a required one is empty."""
+    text = (value or "").strip()[:limit]
+    if required and not text:
         raise RuleError(f"{label} is required.")
-    return value
+    return text
 
 
-def int_field(name):
+def page_number(raw):
     try:
-        value = int(request.form.get(name, ""))
-    except ValueError:
-        return None
-    return value if value > 0 else None
+        return max(int(raw), 1)
+    except (TypeError, ValueError):
+        return 1
+
+
+def as_dicts(rows):
+    return [dict(r) for r in rows]
+
+
+def as_dict(row):
+    return dict(row) if row is not None else None

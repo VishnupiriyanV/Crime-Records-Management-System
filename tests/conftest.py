@@ -1,64 +1,50 @@
 import pytest
-from werkzeug.security import generate_password_hash
+from fastapi.testclient import TestClient
 
-from app import create_app
-from app.db import get_db
+import mongomock
+
+from app import create_app, db
+from app.auth import hash_password
 
 
 @pytest.fixture
 def app(tmp_path):
-    app = create_app({"DATABASE": str(tmp_path / "test.db"), "SECRET_KEY": "test", "TESTING": True})
-    with app.app_context():
-        db = get_db()
-        db.execute("INSERT INTO police_station (name, jurisdiction) VALUES ('Central', 'Centre')")
-        pw = generate_password_hash("password123")
-        for name, email, role in (
-            ("Admin", "admin@t.test", "admin"),
-            ("Officer", "officer@t.test", "officer"),
-            ("Other Officer", "other@t.test", "officer"),
-            ("Asha", "asha@t.test", "citizen"),
-            ("Bina", "bina@t.test", "citizen"),
-        ):
-            uid = db.execute(
-                "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)", (name, email, pw, role)
-            ).lastrowid
-            if role == "citizen":
-                db.execute("INSERT INTO citizen (user_id) VALUES (?)", (uid,))
-            elif role == "admin":
-                db.execute("INSERT INTO admin (user_id) VALUES (?)", (uid,))
-            else:
-                db.execute(
-                    "INSERT INTO officer (user_id, badge_no, rank, station_id) VALUES (?, ?, 'Inspector', 1)",
-                    (uid, f"B-{uid}"),
-                )
-        db.commit()
+    path = str(tmp_path / "test.db")
+    app = create_app(database=path, secret="test", mongo_client=mongomock.MongoClient())
+    token = db.use(db.connect(path))
+    conn = db.get_db()
+    conn.execute("INSERT INTO police_station (name, jurisdiction) VALUES ('Central', 'Centre')")
+    pw = hash_password("password123")
+    for name, email, role in (
+        ("Admin", "admin@t.test", "admin"),
+        ("Officer", "officer@t.test", "officer"),
+        ("Other Officer", "other@t.test", "officer"),
+        ("Asha", "asha@t.test", "citizen"),
+        ("Bina", "bina@t.test", "citizen"),
+    ):
+        uid = conn.execute(
+            "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)", (name, email, pw, role)
+        ).lastrowid
+        if role == "citizen":
+            conn.execute("INSERT INTO citizen (user_id) VALUES (?)", (uid,))
+        elif role == "admin":
+            conn.execute("INSERT INTO admin (user_id) VALUES (?)", (uid,))
+        else:
+            conn.execute(
+                "INSERT INTO officer (user_id, badge_no, rank, station_id) VALUES (?, ?, 'Inspector', 1)",
+                (uid, f"B-{uid}"),
+            )
+    conn.commit()
+    db.release(token)
     return app
-
-
-class Client:
-    def __init__(self, app):
-        self.http = app.test_client()
-
-    def login(self, email):
-        self.http.get("/login")
-        with self.http.session_transaction() as s:
-            s["csrf"] = "tok"
-        return self.http.post("/login", data={"email": email, "password": "password123", "csrf": "tok"})
-
-    def post(self, url, **data):
-        with self.http.session_transaction() as s:
-            s["csrf"] = "tok"
-        return self.http.post(url, data={**data, "csrf": "tok"})
-
-    def get(self, url):
-        return self.http.get(url)
 
 
 @pytest.fixture
 def make_client(app):
     def make(email=None):
-        c = Client(app)
+        client = TestClient(app, headers={"X-Requested-With": "crms"})
         if email:
-            c.login(email)
-        return c
+            resp = client.post("/api/auth/login", json={"email": email, "password": "password123"})
+            assert resp.status_code == 200
+        return client
     return make
