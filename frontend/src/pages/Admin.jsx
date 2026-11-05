@@ -12,7 +12,7 @@ export function Reports() {
   if (loading) return <Loading />;
   if (error) return <Failed error={error} retry={reload} />;
 
-  const { by_status, by_station, period, criminals, history, monthly } = data;
+  const { by_status, by_station, period, criminals, history, monthly, by_category, by_severity } = data;
   // the two forms share one query string, so each keeps the other's values
   const apply = (extra) => (event) => {
     event.preventDefault();
@@ -28,6 +28,17 @@ export function Reports() {
         <h2>Complaints filed, last 12 months</h2>
         <Line points={monthly} title="Complaints filed per month" />
       </section>
+
+      <div className="cols cols--even">
+        <section className="panel">
+          <h2>Complaints by category</h2>
+          {by_category.length ? <Bars rows={by_category} label="category" value="total" title="Complaints by category" /> : <div className="empty"><p>No complaints yet.</p></div>}
+        </section>
+        <section className="panel">
+          <h2>Complaints by severity</h2>
+          {by_severity.length ? <Bars rows={by_severity} label="severity" value="total" title="Complaints by severity" /> : <div className="empty"><p>No complaints yet.</p></div>}
+        </section>
+      </div>
 
       <div className="cols cols--even">
         <section className="panel">
@@ -110,6 +121,7 @@ export function Users() {
   const addStation = async (event) => {
     const body = formData(event);
     const form = event.target;
+    for (const key of ['latitude', 'longitude']) body[key] = body[key] === '' ? null : Number(body[key]);
     const done = await act(() => api('/stations', { method: 'POST', body }), 'Station added.');
     if (done) form.reset();
   };
@@ -161,6 +173,11 @@ export function Users() {
           <div className="row">
             <Field label="Station name" id="s-name"><input id="s-name" name="name" required /></Field>
             <Field label="Area covered" id="s-area"><input id="s-area" name="jurisdiction" required /></Field>
+            <Field label="Phone" id="s-phone"><input id="s-phone" name="phone" /></Field>
+          </div>
+          <div className="row" style={{ marginTop: 'var(--space-md)' }}>
+            <Field label="Latitude" id="s-lat" hint="Optional, for the map."><input id="s-lat" name="latitude" type="number" step="any" min="-90" max="90" /></Field>
+            <Field label="Longitude" id="s-lng"><input id="s-lng" name="longitude" type="number" step="any" min="-180" max="180" /></Field>
             <button className="btn" type="submit">Add station</button>
           </div>
         </form>

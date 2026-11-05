@@ -1,16 +1,17 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from ..auth import login_required
+from ..constants import CATEGORIES, CHARGEABLE, CUSTODY_ACTIONS, PERSON_ROLES, SEVERITIES, with_fir
 from ..db import get_db, many, one, run
-from ..forms import as_dict, as_dicts, need, order_by, page_number
+from ..forms import as_dict, as_dicts, need, need_date, order_by, page_number
 from ..lifecycle import (
-    CASE_STATUSES, CASE_TRANSITIONS, RuleError, assign_officer, change_case_status, is_closed,
+    CASE_STATUSES, CASE_TRANSITIONS, RuleError, assign_officer, change_case_status, file_chargesheet, is_closed, notify,
 )
 from ..mongo import clean, mdb, now
 from ..stats import monthly_complaints
 from ..timeline import case_timeline
-from .attachments import list_for
+from .attachments import list_for, save_upload
 
 router = APIRouter(prefix="/api")
 
@@ -22,7 +23,8 @@ SORTS = {
 }
 
 CASE_SELECT = (
-    'SELECT cs.*, c.title, c.location, c.description, c.incident_date, c.complaint_id,'
+    'SELECT cs.*, c.title, c.location, c.description, c.incident_date, c.complaint_id, c.date_filed,'
+    " c.category, c.severity, c.latitude, c.longitude,"
     " cu.name AS citizen_name, ps.name AS station, ou.name AS officer_name"
     ' FROM crime_case cs JOIN complaint c ON c.complaint_id = cs.complaint_id'
     " JOIN citizen ct ON ct.citizen_id = c.citizen_id JOIN users cu ON cu.user_id = ct.user_id"
@@ -53,6 +55,40 @@ class ReportBody(BaseModel):
     content: str = ""
 
 
+class StatementBody(BaseModel):
+    kind: str = ""
+    person: str = ""
+    body: str = ""
+
+
+class ArrestBody(BaseModel):
+    criminal_id: int | None = None
+    arrested_on: str = ""
+    place: str = ""
+    charges: str = ""
+
+
+class ChargesheetBody(BaseModel):
+    sections: str = ""
+    summary: str = ""
+
+
+class CourtDateBody(BaseModel):
+    date: str = ""
+    court: str = ""
+    purpose: str = ""
+
+
+class OutcomeBody(BaseModel):
+    outcome: str = ""
+
+
+class CustodyBody(BaseModel):
+    action: str = ""
+    where: str = ""
+    note: str = ""
+
+
 def my_officer_id(user):
     row = one("SELECT officer_id FROM officer WHERE user_id = ?", user["user_id"])
     return row["officer_id"] if row else None
@@ -78,6 +114,24 @@ def require_edit(case_id, user):
     if not can_edit(case, user):
         raise RuleError("Only the assigned officer or an admin can change an open case.")
     return case
+
+
+def upcoming_hearings(limit=6):
+    """The next court dates on cases that are still open."""
+    today = now()[:10]
+    found = clean(mdb().court_dates.find({"date": {"$gte": today}, "outcome": ""}).sort("date", 1))
+    hearings = []
+    for item in found:
+        case = one(
+            "SELECT cs.case_id, cs.status, c.title FROM crime_case cs JOIN complaint c ON c.complaint_id = cs.complaint_id"
+            " WHERE cs.case_id = ?",
+            item["case_id"],
+        )
+        if case and not is_closed(case["status"]):
+            hearings.append({**item, "title": case["title"]})
+        if len(hearings) == limit:
+            break
+    return hearings
 
 
 @router.get("/dashboard")
@@ -108,11 +162,15 @@ def dashboard(user=login_required("officer", "admin")):
         "counts": counts, "queue": as_dicts(queue), "unassigned": as_dicts(unassigned),
         "mine_rows": as_dicts(mine_rows),
         "by_status": as_dicts(many("SELECT * FROM v_cases_by_status ORDER BY total DESC")),
+        "by_category": as_dicts(many(
+            "SELECT category, COUNT(*) AS total FROM complaint GROUP BY category ORDER BY total DESC, category"
+        )),
         "monthly": monthly_complaints(),
+        "hearings": upcoming_hearings(),
     }
 
 
-def case_filter(status, q, mine, user):
+def case_filter(status, q, mine, user, category=""):
     """WHERE clause and arguments shared by the list and the CSV export."""
     where, args = [], []
     if status in CASE_STATUSES:
@@ -121,6 +179,9 @@ def case_filter(status, q, mine, user):
     if mine == "1":
         where.append("cs.officer_id = ?")
         args.append(my_officer_id(user))
+    if category in CATEGORIES:
+        where.append("c.category = ?")
+        args.append(category)
     if q.strip():
         where.append("(c.title LIKE ? OR cu.name LIKE ? OR c.location LIKE ?)")
         args += [f"%{q.strip()}%"] * 3
@@ -129,11 +190,11 @@ def case_filter(status, q, mine, user):
 
 @router.get("/cases")
 def index(
-    status: str = "", q: str = "", mine: str = "", page: str = "1", sort: str = "no", dir: str = "desc",
-    user=login_required("officer", "admin"),
+    status: str = "", q: str = "", mine: str = "", category: str = "", page: str = "1",
+    sort: str = "no", dir: str = "desc", user=login_required("officer", "admin"),
 ):
     page = page_number(page)
-    clause, args = case_filter(status, q, mine, user)
+    clause, args = case_filter(status, q, mine, user, category)
     total = one(
         'SELECT COUNT(*) AS n FROM crime_case cs JOIN complaint c ON c.complaint_id = cs.complaint_id'
         " JOIN citizen ct ON ct.citizen_id = c.citizen_id JOIN users cu ON cu.user_id = ct.user_id " + clause,
@@ -144,7 +205,8 @@ def index(
         *args, PAGE_SIZE, (page - 1) * PAGE_SIZE,
     )
     return {
-        "items": as_dicts(rows), "statuses": CASE_STATUSES, "page": page, "total": total,
+        "items": [with_fir(r) for r in rows], "statuses": CASE_STATUSES, "categories": CATEGORIES,
+        "page": page, "total": total,
         "pages": max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1),
     }
 
@@ -153,6 +215,9 @@ def index(
 def detail(case_id: int, user=login_required("officer", "admin")):
     case = load_case(case_id)
     evidence = clean(mdb().evidence.find({"case_id": case_id}).sort("evidence_no", 1))
+    for item in evidence:
+        item.setdefault("custody", [])
+        item["files"] = clean(mdb().attachments.find({"case_id": case_id, "evidence_no": item["evidence_no"]}).sort("_id", 1))
     linked = many(
         "SELECT cc.role, cr.* FROM case_criminal cc JOIN criminal cr ON cr.criminal_id = cc.criminal_id"
         " WHERE cc.case_id = ? ORDER BY cr.name",
@@ -177,7 +242,12 @@ def detail(case_id: int, user=login_required("officer", "admin")):
         " WHERE u.active = 1 ORDER BY u.name"
     ) if user["role"] == "admin" else []
     return {
-        "case": dict(case), "evidence": evidence, "linked": as_dicts(linked),
+        "case": with_fir(case), "evidence": evidence, "linked": as_dicts(linked),
+        "statements": clean(mdb().statements.find({"case_id": case_id}).sort("no", 1)),
+        "arrests": clean(mdb().arrests.find({"case_id": case_id}).sort("no", 1)),
+        "court_dates": clean(mdb().court_dates.find({"case_id": case_id}).sort("date", 1)),
+        "chargesheet": (clean(mdb().chargesheets.find({"case_id": case_id})) or [None])[0],
+        "custody_actions": CUSTODY_ACTIONS,
         "available": as_dicts(available), "reports": as_dicts(reports), "notes": notes,
         "history": history, "timeline": timeline, "attachments": attachments, "officers": as_dicts(officers),
         "editable": can_edit(case, user), "next_states": CASE_TRANSITIONS[case["status"]],
@@ -206,6 +276,7 @@ def add_evidence(case_id: int, body: Evidence, user=login_required("officer", "a
     mdb().evidence.insert_one({
         "case_id": case_id, "evidence_no": next_no, "type": kind,
         "description": description, "date_collected": now()[:10], "created_at": now(),
+        "custody": [{"at": now(), "action": "collected", "by": user["name"], "where": "", "note": ""}],
     })
     return {"evidence_no": next_no}
 
@@ -243,4 +314,111 @@ def add_report(case_id: int, body: ReportBody, user=login_required("officer", "a
         case_id, my_officer_id(user), need(body.content, "Report", 6000),
     )
     get_db().commit()
+    return {"ok": True}
+
+
+def _next_no(collection, case_id):
+    last = mdb()[collection].find_one({"case_id": case_id}, sort=[("no", -1)])
+    return (last["no"] if last else 0) + 1
+
+
+def _evidence_item(case_id, evidence_no):
+    item = mdb().evidence.find_one({"case_id": case_id, "evidence_no": evidence_no})
+    if item is None:
+        raise HTTPException(404, "That evidence item does not exist.")
+    return item
+
+
+@router.post("/cases/{case_id}/evidence/{evidence_no}/custody")
+def add_custody(case_id: int, evidence_no: int, body: CustodyBody, user=login_required("officer", "admin")):
+    require_edit(case_id, user)
+    item = _evidence_item(case_id, evidence_no)
+    if body.action not in CUSTODY_ACTIONS:
+        raise RuleError("Pick what happened to the item.")
+    where = need(body.where, "Where it is now", 120)
+    if (item.get("custody") or [{}])[-1].get("action") in ("released", "destroyed"):
+        raise RuleError("This item has already left custody.")
+    mdb().evidence.update_one(
+        {"case_id": case_id, "evidence_no": evidence_no},
+        {"$push": {"custody": {
+            "at": now(), "action": body.action, "by": user["name"], "where": where,
+            "note": need(body.note, "Note", 500, required=False),
+        }}},
+    )
+    return {"ok": True}
+
+
+@router.post("/cases/{case_id}/evidence/{evidence_no}/files")
+async def add_evidence_file(case_id: int, evidence_no: int, file: UploadFile, user=login_required("officer", "admin")):
+    require_edit(case_id, user)
+    _evidence_item(case_id, evidence_no)
+    if mdb().attachments.count_documents({"case_id": case_id, "evidence_no": evidence_no}) >= 5:
+        raise RuleError("An evidence item can hold 5 files at most.")
+    return {"attachment_id": await save_upload(file, {"case_id": case_id, "evidence_no": evidence_no})}
+
+
+@router.post("/cases/{case_id}/statements")
+def add_statement(case_id: int, body: StatementBody, user=login_required("officer", "admin")):
+    require_edit(case_id, user)
+    if body.kind not in PERSON_ROLES:
+        raise RuleError("Pick whose statement this is.")
+    no = _next_no("statements", case_id)
+    mdb().statements.insert_one({
+        "case_id": case_id, "no": no, "kind": body.kind, "person": need(body.person, "Name", 120),
+        "body": need(body.body, "Statement", 4000), "recorded_by": user["name"], "recorded_at": now(),
+    })
+    return {"no": no}
+
+
+@router.post("/cases/{case_id}/arrests")
+def add_arrest(case_id: int, body: ArrestBody, user=login_required("officer", "admin")):
+    require_edit(case_id, user)
+    link = one("SELECT cr.name, cc.role FROM case_criminal cc JOIN criminal cr ON cr.criminal_id = cc.criminal_id"
+               " WHERE cc.case_id = ? AND cc.criminal_id = ?", case_id, body.criminal_id)
+    if link is None or link["role"] not in CHARGEABLE:
+        raise RuleError("Only a suspect or accused person linked to this case can be arrested.")
+    no = _next_no("arrests", case_id)
+    mdb().arrests.insert_one({
+        "case_id": case_id, "no": no, "criminal_id": body.criminal_id, "person": link["name"],
+        "arrested_on": need_date(body.arrested_on, "Arrest date", allow_future=False),
+        "place": need(body.place, "Place", 200), "charges": need(body.charges, "Charges", 500),
+        "recorded_by": user["name"], "recorded_at": now(),
+    })
+    return {"no": no}
+
+
+@router.post("/cases/{case_id}/chargesheet")
+def chargesheet(case_id: int, body: ChargesheetBody, user=login_required("officer", "admin")):
+    require_edit(case_id, user)
+    file_chargesheet(
+        case_id, need(body.sections, "Sections", 300), need(body.summary, "Summary", 4000), user["user_id"],
+    )
+    return {"ok": True}
+
+
+@router.post("/cases/{case_id}/court-dates")
+def add_court_date(case_id: int, body: CourtDateBody, user=login_required("officer", "admin")):
+    case = require_edit(case_id, user)
+    if not mdb().chargesheets.find_one({"case_id": case_id}):
+        raise RuleError("A court date can be set once the chargesheet is filed.")
+    day = need_date(body.date, "Court date")
+    no = _next_no("court_dates", case_id)
+    mdb().court_dates.insert_one({
+        "case_id": case_id, "no": no, "date": day, "court": need(body.court, "Court", 150),
+        "purpose": need(body.purpose, "Purpose", 200), "outcome": "", "set_by": user["name"], "created_at": now(),
+    })
+    owner = one("SELECT u.user_id FROM complaint c JOIN citizen ct ON ct.citizen_id = c.citizen_id"
+                " JOIN users u ON u.user_id = ct.user_id WHERE c.complaint_id = ?", case["complaint_id"])
+    notify(owner["user_id"], f"A court date was set for your case on {day}.", f"/complaints/{case['complaint_id']}")
+    return {"no": no}
+
+
+@router.post("/cases/{case_id}/court-dates/{no}/outcome")
+def court_outcome(case_id: int, no: int, body: OutcomeBody, user=login_required("officer", "admin")):
+    require_edit(case_id, user)
+    result = mdb().court_dates.update_one(
+        {"case_id": case_id, "no": no}, {"$set": {"outcome": need(body.outcome, "Outcome", 500)}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(404, "That court date does not exist.")
     return {"ok": True}

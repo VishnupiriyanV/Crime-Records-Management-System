@@ -1,4 +1,4 @@
-"""Load demo data (python -m app.seed) or create only a first admin (python -m app.seed --admin EMAIL)."""
+"""Load demo data (python -m app.seed), a year of sample records on top (--bulk 300), or only a first admin (--admin EMAIL)."""
 import argparse
 import os
 import sys
@@ -77,8 +77,35 @@ def seed_admin(email):
         db.release(token)
 
 
+def seed_bulk(count):
+    from . import demo_data, mongo
+    from .main_config import mongo_name, mongo_url
+
+    path = database_url()
+    db.init_db(path)
+    mongo.configure(mongo_url(), mongo_name())
+    token = db.use(db.connect(path))
+    try:
+        if not one("SELECT 1 FROM users LIMIT 1"):
+            db.release(token)
+            seed_demo()
+            token = db.use(db.connect(path))
+        if one("SELECT COUNT(*) AS n FROM complaint")["n"] > 20:
+            sys.exit("This database already has plenty of complaints; sample records not added.")
+        made = demo_data.generate(count)
+        print(f"Added {made} sample complaints with their cases, evidence and records.")
+    finally:
+        db.release(token)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--bulk", type=int, metavar="N", help="also add N sample complaints over the last year")
     parser.add_argument("--admin", metavar="EMAIL", help="create only this admin; the password comes from CRMS_ADMIN_PASSWORD")
     args = parser.parse_args()
-    seed_admin(args.admin) if args.admin else seed_demo()
+    if args.admin:
+        seed_admin(args.admin)
+    elif args.bulk:
+        seed_bulk(args.bulk)
+    else:
+        seed_demo()

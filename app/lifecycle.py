@@ -1,5 +1,6 @@
 """Status rules for complaints and cases (FR-07, FR-08, FR-09, FR-12)."""
-from .db import get_db, one, run
+from .constants import CHARGEABLE
+from .db import get_db, many, one, run
 from .mongo import mdb, now
 
 # the only moves a case may make
@@ -92,6 +93,8 @@ def change_case_status(case_id, new_status, user_id):
         raise RuleError("Case not found.")
     if new_status not in CASE_TRANSITIONS.get(case["status"], []):
         raise RuleError(f"A case cannot move from “{case['status']}” to “{new_status}”.")
+    if new_status == "Chargesheet Filed" and not mdb().chargesheets.find_one({"case_id": case_id}):
+        raise RuleError("File the chargesheet first; it records the sections and a summary.")
     run('UPDATE crime_case SET status = ? WHERE case_id = ?', new_status, case_id)
     log_status("case", case_id, case["status"], new_status, user_id)
     owner = _complaint(case["complaint_id"])
@@ -129,3 +132,28 @@ def _tell_officers(case, new_officer_id):
     if case["officer_id"] and case["officer_id"] != new_officer_id:
         old = one("SELECT user_id FROM officer WHERE officer_id = ?", case["officer_id"])
         notify(old["user_id"], f"Case {case['case_id']}, \u201c{title}\u201d, was reassigned to another officer.", link)
+
+
+def file_chargesheet(case_id, sections, summary, user_id):
+    """Record the chargesheet and move the case to Chargesheet Filed in one step."""
+    case = one('SELECT * FROM crime_case WHERE case_id = ?', case_id)
+    if case is None:
+        raise RuleError("Case not found.")
+    if case["status"] != "Under Investigation":
+        raise RuleError("Only a case under investigation can have a chargesheet filed.")
+    placeholders = ", ".join("?" for _ in CHARGEABLE)
+    charged = many(
+        f"SELECT 1 FROM case_criminal WHERE case_id = ? AND role IN ({placeholders})", case_id, *CHARGEABLE
+    )
+    if not charged:
+        raise RuleError("Link at least one suspect or accused person before filing a chargesheet.")
+    who = one("SELECT name FROM users WHERE user_id = ?", user_id)
+    mdb().chargesheets.insert_one({
+        "case_id": case_id, "filed_on": now()[:10], "sections": sections, "summary": summary,
+        "filed_by": who["name"] if who else None, "created_at": now(),
+    })
+    try:
+        change_case_status(case_id, "Chargesheet Filed", user_id)
+    except Exception:
+        mdb().chargesheets.delete_many({"case_id": case_id})
+        raise

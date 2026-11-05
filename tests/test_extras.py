@@ -101,3 +101,168 @@ def test_api_docs_are_not_exposed(make_client):
     for path in ("/docs", "/redoc", "/openapi.json"):
         text = client.get(path).text.lower()
         assert "swagger" not in text and "openapi" not in text, path
+
+
+def test_fir_number_category_and_filters(make_client):
+    asha, admin = make_client("asha@t.test"), make_client("admin@t.test")
+    body = {"title": "Phone stolen", "description": "Snatched.", "location": "Bus stand", "incident_date": "2026-10-02",
+            "category": "Theft", "latitude": 13.08, "longitude": 80.27}
+    assert asha.post("/api/complaints", json=body).status_code == 200
+    assert asha.post("/api/complaints", json={**body, "category": "Nonsense"}).status_code == 400
+    assert asha.post("/api/complaints", json={**body, "longitude": None}).status_code == 400
+    assert asha.post("/api/complaints", json={**body, "latitude": 999}).status_code == 400
+
+    item = admin.get("/api/complaints").json()["items"][0]
+    year = item["date_filed"][:4]
+    assert item["fir_no"] == f"FIR/{year}/0001" and item["category"] == "Theft" and item["severity"] == "Medium"
+    assert admin.get(f"/api/complaints?q=FIR/{year}/0001").json()["total"] == 1
+    assert admin.get(f"/api/complaints?q=FIR/{year}/0099").json()["total"] == 0
+    assert admin.get("/api/complaints?category=Theft&severity=Medium").json()["total"] == 1
+    assert admin.get("/api/complaints?category=Fraud").json()["total"] == 0
+    assert admin.get(f"/api/search?q=FIR/{year}/0001").json()["complaints"][0]["fir_no"] == f"FIR/{year}/0001"
+
+    # staff can reclassify; a citizen cannot, and the change is audited
+    assert asha.post("/api/complaints/1/classify", json={"category": "Fraud", "severity": "High"}).status_code == 403
+    assert admin.post("/api/complaints/1/classify", json={"category": "Fraud", "severity": "High"}).status_code == 200
+    assert admin.get("/api/complaints/1").json()["complaint"]["severity"] == "High"
+    assert admin.get("/api/audit?entity=complaint classification").json()["total"] == 1
+    assert "FIR/" in admin.get("/api/export/complaints.csv").content.decode("utf-8-sig")
+
+
+def test_case_file_records(make_client):
+    asha, admin = seed_case(make_client)
+    admin.post("/api/cases/1/assign", json={"officer_id": 1})
+    person = admin.post("/api/criminals", json={"name": "Ravi Menon"}).json()["criminal_id"]
+    witness = admin.post("/api/criminals", json={"name": "Shop Neighbour"}).json()["criminal_id"]
+    admin.post("/api/cases/1/criminals", json={"criminal_id": person, "role": "suspect"})
+    admin.post("/api/cases/1/criminals", json={"criminal_id": witness, "role": "witness"})
+
+    assert admin.post("/api/cases/1/statements", json={"kind": "witness", "person": "Shop Neighbour", "body": "Saw a man."}).status_code == 200
+    assert admin.post("/api/cases/1/statements", json={"kind": "bystander", "person": "X", "body": "Y"}).status_code == 400
+
+    arrest = {"criminal_id": person, "arrested_on": "2026-10-05", "place": "Bus depot", "charges": "Theft"}
+    assert admin.post("/api/cases/1/arrests", json={**arrest, "criminal_id": witness}).status_code == 400  # a witness is not arrested
+    assert admin.post("/api/cases/1/arrests", json={**arrest, "arrested_on": "2999-01-01"}).status_code == 400
+    assert admin.post("/api/cases/1/arrests", json=arrest).status_code == 200
+
+    hearing = {"date": "2999-01-10", "court": "Magistrate Court 4", "purpose": "First hearing"}
+    assert admin.post("/api/cases/1/court-dates", json=hearing).status_code == 400  # needs the chargesheet first
+    assert admin.post("/api/cases/1/chargesheet", json={"sections": "BNS 303", "summary": "Taken from the shop."}).status_code == 200
+    assert admin.post("/api/cases/1/chargesheet", json={"sections": "BNS 303", "summary": "Again."}).status_code == 400
+    assert admin.post("/api/cases/1/court-dates", json=hearing).status_code == 200
+    assert admin.post("/api/cases/1/court-dates", json={**hearing, "date": "not a date"}).status_code == 400
+    assert admin.post("/api/cases/1/court-dates/1/outcome", json={"outcome": "Adjourned"}).status_code == 200
+    assert any("court date" in n["message"] for n in asha.get("/api/notifications").json()["items"])
+
+    case = admin.get("/api/cases/1").json()
+    assert case["chargesheet"]["sections"] == "BNS 303"
+    assert len(case["statements"]) == 1 and len(case["arrests"]) == 1 and case["court_dates"][0]["outcome"] == "Adjourned"
+    texts = [e["text"] for e in case["timeline"]]
+    assert "Statement from witness Shop Neighbour" in texts and any("arrested at Bus depot" in t for t in texts)
+    assert any(t.startswith("Chargesheet filed under BNS 303") for t in texts)
+    assert admin.get("/api/export/cases/1.pdf").content.startswith(b"%PDF")
+    assert asha.get("/api/cases/1").status_code == 403
+
+
+def test_evidence_custody_and_files(make_client):
+    asha, admin = seed_case(make_client)
+    admin.post("/api/cases/1/evidence", json={"type": "Hammer", "description": "Found near the shop"})
+    item = admin.get("/api/cases/1").json()["evidence"][0]
+    assert [c["action"] for c in item["custody"]] == ["collected"]
+
+    custody = {"action": "stored", "where": "Evidence room, shelf 3"}
+    assert admin.post("/api/cases/1/evidence/1/custody", json=custody).status_code == 200
+    assert admin.post("/api/cases/1/evidence/1/custody", json={"action": "lost", "where": "x"}).status_code == 400
+    assert admin.post("/api/cases/1/evidence/1/custody", json={"action": "stored"}).status_code == 400
+    assert admin.post("/api/cases/1/evidence/9/custody", json=custody).status_code == 404
+    admin.post("/api/cases/1/evidence/1/custody", json={"action": "released", "where": "Returned to owner"})
+    assert admin.post("/api/cases/1/evidence/1/custody", json=custody).status_code == 400  # already left custody
+
+    sent = admin.post("/api/cases/1/evidence/1/files", files={"file": ("hammer.png", b"\x89PNG data", "image/png")})
+    assert sent.status_code == 200
+    files = admin.get("/api/cases/1").json()["evidence"][0]["files"]
+    assert len(files) == 1
+    # a file on evidence is for staff only, and does not show up on the citizen's complaint
+    assert admin.get(f"/api/attachments/{files[0]['attachment_id']}").status_code == 200
+    assert asha.get(f"/api/attachments/{files[0]['attachment_id']}").status_code == 404
+    assert asha.get("/api/complaints/1").json()["attachments"] == []
+
+
+def test_hotspots_stations_and_officers(make_client):
+    asha, admin = make_client("asha@t.test"), make_client("admin@t.test")
+    for i in range(3):
+        asha.post("/api/complaints", json={
+            "title": f"Theft {i}", "description": "x", "location": "Market", "incident_date": "2026-10-02",
+            "category": "Theft", "latitude": 13.081 + i / 10000, "longitude": 80.271,
+        })
+    asha.post("/api/complaints", json={"title": "Far away", "description": "x", "location": "Elsewhere",
+                                       "incident_date": "2026-10-02", "category": "Fraud", "latitude": 13.2, "longitude": 80.4})
+    asha.post("/api/complaints", json={"title": "No pin", "description": "x", "location": "Somewhere",
+                                       "incident_date": "2026-10-02", "category": "Other"})
+    data = admin.get("/api/map").json()
+    assert len(data["points"]) == 4 and data["hotspots"][0]["total"] == 3 and data["hotspots"][0]["top_category"] == "Theft"
+    assert len(admin.get("/api/map?category=Fraud").json()["points"]) == 1
+    assert asha.get("/api/map").status_code == 403
+
+    listing = admin.get("/api/stations").json()["items"]
+    assert listing[0]["name"] == "Central" and listing[0]["officers"] == 2
+    page = admin.get("/api/stations/1").json()
+    assert [o["name"] for o in page["officers"]] == ["Officer", "Other Officer"]
+    assert admin.get("/api/stations/99").status_code == 404
+    profile = admin.get("/api/officers/1").json()
+    assert profile["officer"]["officer_rank"] == "Inspector" and profile["can_edit_photo"] is True
+
+    # photos: the officer themself or an admin may set one, nobody else, and only small images
+    mine = make_client("officer@t.test")
+    png = ("me.png", b"\x89PNG data", "image/png")
+    assert mine.post("/api/officers/1/photo", files={"file": png}).status_code == 200
+    assert mine.post("/api/officers/2/photo", files={"file": png}).status_code == 400
+    assert mine.post("/api/officers/1/photo", files={"file": ("me.gif", b"GIF89a", "image/gif")}).status_code == 400
+    assert mine.post("/api/officers/1/photo", files={"file": ("big.png", b"0" * (1024 * 1024 + 1), "image/png")}).status_code == 400
+    assert admin.get("/api/officers/1/photo").content == b"\x89PNG data"
+    assert admin.get("/api/officers/2/photo").status_code == 404
+    assert admin.get("/api/officers/1").json()["officer"]["has_photo"] is True
+    assert asha.get("/api/officers/1/photo").status_code == 403
+
+
+def test_old_database_gets_the_new_columns(tmp_path):
+    import sqlite3
+    from app import db
+    path = tmp_path / "old.db"
+    raw = sqlite3.connect(path)
+    raw.execute("CREATE TABLE users (user_id INTEGER PRIMARY KEY)")
+    raw.execute("CREATE TABLE complaint (complaint_id INTEGER PRIMARY KEY, title TEXT)")
+    raw.execute("CREATE TABLE police_station (station_id INTEGER PRIMARY KEY, name TEXT)")
+    raw.execute("INSERT INTO complaint (title) VALUES ('old one')")
+    raw.commit()
+    raw.close()
+    db.init_db(f"sqlite:///{path}")
+    db.init_db(f"sqlite:///{path}")  # running it twice is harmless
+    check = sqlite3.connect(path)
+    assert check.execute("SELECT category, severity, latitude FROM complaint").fetchone() == ("Other", "Medium", None)
+    check.execute("SELECT phone, latitude, longitude FROM police_station")
+
+
+def test_sample_data_generator(app, make_client):
+    from app import db, demo_data
+    token = db.use(db.connect(app.state.database_url))
+    try:
+        assert demo_data.generate(80, seed=1) == 80
+    finally:
+        db.release(token)
+
+    admin = make_client("admin@t.test")
+    assert admin.get("/api/complaints").json()["total"] == 80
+    reports = admin.get("/api/reports").json()
+    assert sum(m["total"] for m in reports["monthly"]) >= 40  # spread across the year, not all in one month
+    assert len(reports["by_category"]) >= 4
+    assert len(admin.get("/api/map").json()["points"]) == 80
+    stations = admin.get("/api/stations").json()["items"]
+    assert len(stations) == 6  # the five sample stations plus the one the fixture made
+    assert sum(1 for s in stations if s["latitude"]) == 5
+    for case in admin.get("/api/cases").json()["items"]:
+        detail = admin.get(f"/api/cases/{case['case_id']}").json()
+        # the rule the app enforces must also hold for generated data
+        if case["status"] in ("Chargesheet Filed", "Closed (Resolved)"):
+            assert detail["chargesheet"] and detail["arrests"]
+        assert all(e["at"] <= "9999" for e in detail["timeline"])

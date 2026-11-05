@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from ..auth import is_staff, login_required
+from ..constants import parse_fir, with_fir
 from ..db import many
 from ..forms import as_dicts
 from .complaints import _citizen_id
@@ -16,22 +17,26 @@ def search(q: str = "", user=login_required()):
     if len(q) < 2:
         return {"complaints": [], "cases": [], "criminals": []}
     like = f"%{q}%"
+    serial = parse_fir(q)
 
     # a citizen only ever searches their own complaints
     if is_staff(user):
         complaints = many(
-            "SELECT c.complaint_id, c.title, c.location, c.status FROM complaint c"
-            " WHERE c.title LIKE ? OR c.location LIKE ? ORDER BY c.complaint_id DESC LIMIT ?",
-            like, like, LIMIT,
+            "SELECT c.complaint_id, c.title, c.location, c.status, c.date_filed FROM complaint c"
+            " WHERE c.title LIKE ? OR c.location LIKE ? OR c.complaint_id = ? ORDER BY c.complaint_id DESC LIMIT ?",
+            like, like, serial or 0, LIMIT,
         )
     else:
         complaints = many(
-            "SELECT c.complaint_id, c.title, c.location, c.status FROM complaint c"
-            " WHERE c.citizen_id = ? AND (c.title LIKE ? OR c.location LIKE ?)"
+            "SELECT c.complaint_id, c.title, c.location, c.status, c.date_filed FROM complaint c"
+            " WHERE c.citizen_id = ? AND (c.title LIKE ? OR c.location LIKE ? OR c.complaint_id = ?)"
             " ORDER BY c.complaint_id DESC LIMIT ?",
-            _citizen_id(user), like, like, LIMIT,
+            _citizen_id(user), like, like, serial or 0, LIMIT,
         )
-    result = {"complaints": as_dicts(complaints), "cases": [], "criminals": []}
+    complaints = [with_fir(r) for r in complaints]
+    if serial is not None:
+        complaints = [c for c in complaints if c["complaint_id"] == serial] or complaints
+    result = {"complaints": complaints, "cases": [], "criminals": []}
 
     if is_staff(user):
         result["cases"] = as_dicts(many(

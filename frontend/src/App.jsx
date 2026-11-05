@@ -9,6 +9,8 @@ import { Case, Cases, Dashboard } from './pages/Cases.jsx';
 import { CriminalForm, Criminals } from './pages/Criminals.jsx';
 import { Audit, Reports, Users } from './pages/Admin.jsx';
 import { Search } from './pages/Search.jsx';
+import { Hotspots } from './pages/Hotspots.jsx';
+import { Officer, Station, Stations } from './pages/Stations.jsx';
 import NotFound from './pages/NotFound.jsx';
 
 function Guard({ roles, children }) {
@@ -49,6 +51,10 @@ export default function App() {
         <Route path="/criminals" element={<Guard roles={staff}><Criminals /></Guard>} />
         <Route path="/criminals/new" element={<Guard roles={staff}><CriminalForm /></Guard>} />
         <Route path="/criminals/:id" element={<Guard roles={staff}><CriminalForm /></Guard>} />
+        <Route path="/map" element={<Guard roles={staff}><Hotspots /></Guard>} />
+        <Route path="/stations" element={<Guard roles={staff}><Stations /></Guard>} />
+        <Route path="/stations/:id" element={<Guard roles={staff}><Station /></Guard>} />
+        <Route path="/officers/:id" element={<Guard roles={staff}><Officer /></Guard>} />
         <Route path="/reports" element={<Guard roles={['admin']}><Reports /></Guard>} />
         <Route path="/users" element={<Guard roles={['admin']}><Users /></Guard>} />
         <Route path="/audit" element={<Guard roles={['admin']}><Audit /></Guard>} />

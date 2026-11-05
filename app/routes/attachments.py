@@ -43,15 +43,8 @@ def list_for(complaint_id):
     return clean(mdb().attachments.find({"complaint_id": complaint_id}).sort("_id", 1))
 
 
-@router.post("/complaints/{complaint_id}/attachments")
-async def upload(complaint_id: int, file: UploadFile, user=login_required("citizen")):
-    c = _owned_complaint(complaint_id, user)
-    case = one('SELECT status FROM crime_case WHERE complaint_id = ?', complaint_id)
-    if c["status"] == "Rejected" or (case and is_closed(case["status"])):
-        raise RuleError("This complaint is closed to new files.")
-    if mdb().attachments.count_documents({"complaint_id": complaint_id}) >= MAX_PER_COMPLAINT:
-        raise RuleError(f"A complaint can hold {MAX_PER_COMPLAINT} files at most.")
-
+async def save_upload(file, owner):
+    """Check an uploaded file and store it; `owner` says what it belongs to (a complaint or an evidence item)."""
     ext = Path(file.filename or "").suffix.lower()
     if ext not in ALLOWED:
         raise RuleError("Upload an image, a PDF or a text file.")
@@ -65,10 +58,21 @@ async def upload(complaint_id: int, file: UploadFile, user=login_required("citiz
     name = re.sub(r"[^\w.\- ]", "_", Path(file.filename).name)[:120]
     mdb().attachment_files.insert_one({"attachment_id": attachment_id, "data": Binary(data)})
     mdb().attachments.insert_one({
-        "attachment_id": attachment_id, "complaint_id": complaint_id, "filename": name,
+        "attachment_id": attachment_id, **owner, "filename": name,
         "content_type": ALLOWED[ext], "size": len(data), "uploaded_at": now(),
     })
-    return {"attachment_id": attachment_id}
+    return attachment_id
+
+
+@router.post("/complaints/{complaint_id}/attachments")
+async def upload(complaint_id: int, file: UploadFile, user=login_required("citizen")):
+    c = _owned_complaint(complaint_id, user)
+    case = one('SELECT status FROM crime_case WHERE complaint_id = ?', complaint_id)
+    if c["status"] == "Rejected" or (case and is_closed(case["status"])):
+        raise RuleError("This complaint is closed to new files.")
+    if mdb().attachments.count_documents({"complaint_id": complaint_id}) >= MAX_PER_COMPLAINT:
+        raise RuleError(f"A complaint can hold {MAX_PER_COMPLAINT} files at most.")
+    return {"attachment_id": await save_upload(file, {"complaint_id": complaint_id})}
 
 
 @router.get("/attachments/{attachment_id}")
@@ -77,7 +81,11 @@ def download(attachment_id: str, inline: str = "", user=login_required()):
     stored = mdb().attachment_files.find_one({"attachment_id": attachment_id})
     if doc is None or stored is None:
         raise HTTPException(404, "That file does not exist.")
-    _owned_complaint(doc["complaint_id"], user)
+    if "complaint_id" in doc:
+        _owned_complaint(doc["complaint_id"], user)
+    elif not is_staff(user):
+        # files on evidence belong to the police case file, never to the citizen
+        raise HTTPException(404, "That file does not exist.")
     headers = {
         "Content-Disposition": f'attachment; filename="{doc["filename"]}"',
         "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox",

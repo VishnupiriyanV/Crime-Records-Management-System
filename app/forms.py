@@ -1,3 +1,5 @@
+from datetime import date, datetime
+
 from .lifecycle import RuleError
 
 
@@ -29,3 +31,14 @@ def order_by(options, key, direction, default):
     column = options.get(key) or options[default]
     way = "ASC" if direction == "asc" else "DESC"
     return f"{column} {way}, {options[default]} DESC"
+
+
+def need_date(value, label, allow_future=True):
+    """A YYYY-MM-DD date, or an error the user can read."""
+    try:
+        day = datetime.strptime((value or "").strip(), "%Y-%m-%d").date()
+    except ValueError:
+        raise RuleError(f"{label} must be a date.") from None
+    if not allow_future and day > date.today():
+        raise RuleError(f"{label} cannot be in the future.")
+    return day.isoformat()

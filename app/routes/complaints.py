@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from ..auth import is_staff, login_required
+from ..constants import CATEGORIES, SEVERITIES, parse_fir, with_fir
 from ..db import get_db, many, one, run
 from ..forms import as_dict, as_dicts, need, order_by, page_number
 from ..lifecycle import RuleError, is_closed, log_status, register_case, reject_complaint, verify_complaint
@@ -15,6 +16,7 @@ PAGE_SIZE = 20
 SORTS = {
     "no": "c.complaint_id", "title": "c.title", "by": "u.name", "location": "c.location",
     "filed": "c.date_filed", "status": "c.status", "case": "cs.status",
+    "category": "c.category", "severity": "c.severity",
 }
 
 
@@ -23,6 +25,14 @@ class NewComplaint(BaseModel):
     description: str = ""
     location: str = ""
     incident_date: str = ""
+    category: str = "Other"
+    latitude: float | None = None
+    longitude: float | None = None
+
+
+class Classify(BaseModel):
+    category: str = ""
+    severity: str = ""
 
 
 class Note(BaseModel):
@@ -56,7 +66,7 @@ def _load(complaint_id, user):
     return c
 
 
-def complaint_filter(user, status, q):
+def complaint_filter(user, status, q, category="", severity=""):
     """WHERE clause and arguments shared by the list and the CSV export."""
     where, args = [], []
     if user["role"] == "citizen":
@@ -65,9 +75,20 @@ def complaint_filter(user, status, q):
     if status in ("Filed", "Verified", "Rejected"):
         where.append("c.status = ?")
         args.append(status)
+    if category in CATEGORIES:
+        where.append("c.category = ?")
+        args.append(category)
+    if severity in SEVERITIES:
+        where.append("c.severity = ?")
+        args.append(severity)
     if q.strip():
-        where.append("(c.title LIKE ? OR c.location LIKE ?)")
-        args += [f"%{q.strip()}%", f"%{q.strip()}%"]
+        serial = parse_fir(q)
+        if serial is not None:
+            where.append("c.complaint_id = ?")
+            args.append(serial)
+        else:
+            where.append("(c.title LIKE ? OR c.location LIKE ?)")
+            args += [f"%{q.strip()}%", f"%{q.strip()}%"]
     return ("WHERE " + " AND ".join(where)) if where else "", args
 
 
@@ -81,20 +102,35 @@ LIST_SELECT = (
 
 @router.get("/complaints")
 def index(
-    status: str = "", q: str = "", page: str = "1", sort: str = "no", dir: str = "desc",
-    user=login_required(),
+    status: str = "", q: str = "", category: str = "", severity: str = "", page: str = "1",
+    sort: str = "no", dir: str = "desc", user=login_required(),
 ):
     page = page_number(page)
-    clause, args = complaint_filter(user, status, q)
+    clause, args = complaint_filter(user, status, q, category, severity)
     total = one(f"SELECT COUNT(*) AS n FROM complaint c {clause}", *args)["n"]
     rows = many(
         f"{LIST_SELECT} {clause} ORDER BY {order_by(SORTS, sort, dir, 'no')} LIMIT ? OFFSET ?",
         *args, PAGE_SIZE, (page - 1) * PAGE_SIZE,
     )
     return {
-        "items": as_dicts(rows), "page": page, "total": total,
+        "items": [with_fir(r) for r in rows], "page": page, "total": total,
         "pages": max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1),
+        "categories": CATEGORIES, "severities": SEVERITIES,
     }
+
+
+@router.get("/meta")
+def meta(user=login_required()):
+    """The fixed lists the forms offer."""
+    return {"categories": CATEGORIES, "severities": SEVERITIES}
+
+
+def _coordinate(value, low, high, label):
+    if value is None:
+        return None
+    if not low <= value <= high:
+        raise RuleError(f"{label} is outside the valid range.")
+    return round(value, 6)
 
 
 @router.post("/complaints")
@@ -105,10 +141,16 @@ def create(body: NewComplaint, user=login_required("citizen")):
         need(body.location, "Location", 200),
         need(body.incident_date, "Incident date", 10),
     )
+    if body.category not in CATEGORIES:
+        raise RuleError("Pick a crime category.")
+    if (body.latitude is None) != (body.longitude is None):
+        raise RuleError("Give both a latitude and a longitude, or neither.")
+    lat = _coordinate(body.latitude, -90, 90, "Latitude")
+    lng = _coordinate(body.longitude, -180, 180, "Longitude")
     complaint_id = run(
-        "INSERT INTO complaint (citizen_id, title, description, location, incident_date)"
-        " VALUES (?, ?, ?, ?, ?)",
-        _citizen_id(user), *values,
+        "INSERT INTO complaint (citizen_id, title, description, location, incident_date, category, latitude, longitude)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        _citizen_id(user), *values, body.category, lat, lng,
     )
     get_db().commit()
     log_status("complaint", complaint_id, None, "Filed", user["user_id"])
@@ -134,9 +176,25 @@ def detail(complaint_id: int, user=login_required()):
         and not (case and is_closed(case["status"]))
     )
     return {
-        "complaint": dict(c), "case": as_dict(case), "notes": notes,
+        "complaint": with_fir(c), "case": as_dict(case), "notes": notes,
         "history": history, "attachments": list_for(complaint_id), "stations": as_dicts(stations), "can_add_note": can_add_note,
+        "categories": CATEGORIES, "severities": SEVERITIES,
     }
+
+
+@router.post("/complaints/{complaint_id}/classify")
+def classify(complaint_id: int, body: Classify, user=login_required("officer", "admin")):
+    c = _load(complaint_id, user)
+    if body.category not in CATEGORIES:
+        raise RuleError("Pick a crime category.")
+    if body.severity not in SEVERITIES:
+        raise RuleError("Pick a severity.")
+    run("UPDATE complaint SET category = ?, severity = ? WHERE complaint_id = ?", body.category, body.severity, complaint_id)
+    get_db().commit()
+    before, after = f"{c['category']}, {c['severity']}", f"{body.category}, {body.severity}"
+    if before != after:
+        log_status("complaint classification", complaint_id, before, after, user["user_id"])
+    return {"ok": True}
 
 
 @router.post("/complaints/{complaint_id}/notes")

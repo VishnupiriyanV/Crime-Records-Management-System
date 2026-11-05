@@ -16,11 +16,15 @@ def test_complaint_to_case(page):
     sign_in(page, "asha@e2e.test")
     page.click("text=File a complaint")
     page.fill("#title", "Bicycle stolen")
+    page.select_option("#category", "Theft")
     page.fill("#location", "Station Road")
     page.fill("#description", "Taken from the rack outside the library.")
     page.fill("#incident_date", "2026-11-01")
+    page.click(".map--pick", position={"x": 200, "y": 120})  # drop a pin
     page.click("button[type=submit]")
     expect(page.locator("h1")).to_have_text("Bicycle stolen")
+    expect(page.locator("main")).to_contain_text("FIR/")
+    expect(page.locator(".map--small")).to_be_visible()
     expect(page.locator(".progress li.now")).to_have_text("Filed")
 
     # a note and a file from the citizen
@@ -47,6 +51,37 @@ def test_complaint_to_case(page):
     page.fill("#type", "CCTV")
     page.click("text=Save evidence")
     expect(page.locator(".timeline")).to_contain_text("Evidence 1 recorded")
+
+    # chain of custody
+    page.click("text=Log movement or attach a file")
+    page.fill("#where-1", "Evidence room, shelf 3")
+    page.click("button:has-text('Log')")
+    expect(page.locator(".custody")).to_contain_text("stored, Evidence room, shelf 3")
+
+    # a chargesheet needs someone to charge; the page says so, then accepts it once a suspect is linked
+    page.click("text=File the chargesheet")
+    page.fill("#cs-sections", "BNS 303")
+    page.fill("#cs-summary", "Bicycle taken from the rack.")
+    page.click("button:has-text('File chargesheet')")
+    expect(page.locator(".flash--error")).to_contain_text("suspect or accused")
+    headers = {"X-Requested-With": "crms"}
+    person = page.request.post(page.base + "/api/criminals", headers=headers, data={"name": "Ravi Menon"}).json()
+    page.request.post(page.base + "/api/cases/1/criminals", headers=headers, data={"criminal_id": person["criminal_id"], "role": "accused"})
+    page.reload()
+    page.click("text=File the chargesheet")
+    page.fill("#cs-sections", "BNS 303")
+    page.fill("#cs-summary", "Bicycle taken from the rack.")
+    page.click("button:has-text('File chargesheet')")
+    expect(page.locator(".facts").filter(has_text="BNS 303")).to_be_visible()
+    expect(page.locator(".timeline")).to_contain_text("Chargesheet filed under BNS 303")
+
+    # the map and the station pages
+    page.goto(page.base + "/map")
+    expect(page.locator(".map--big")).to_be_visible()
+    expect(page.locator("main")).to_contain_text("Busiest areas")
+    page.goto(page.base + "/stations")
+    page.click("text=Central")
+    expect(page.locator("h1")).to_have_text("Central")
 
     # search, shortcuts and exports
     page.fill(".search input", "bicycle")

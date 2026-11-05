@@ -192,6 +192,24 @@ export function Download({ path, params, children }) {
   return <a className="btn btn--small" href={href}>{children}</a>;
 }
 
+// the crime type and how serious it was judged to be
+export function Tags({ category, severity }) {
+  return (
+    <span className="tags">
+      <span className="badge">{category}</span>
+      <span className={`badge ${severity === 'High' ? 'badge--bad' : ''}`}>{severity}</span>
+    </span>
+  );
+}
+
+// a person's photo, or their initials when there is none
+export function Avatar({ officerId, name, has, size = 56 }) {
+  const initials = name.split(' ').map((w) => w[0]).slice(0, 2).join('');
+  return has
+    ? <img className="avatar" style={{ width: size, height: size }} src={`/api/officers/${officerId}/photo`} alt="" />
+    : <span className="avatar avatar--blank" style={{ width: size, height: size }} aria-hidden="true">{initials}</span>;
+}
+
 const STAGES = ['Filed', 'Verified', 'Case opened', 'Resolved'];
 
 // where a complaint is on its way from filing to a closed case

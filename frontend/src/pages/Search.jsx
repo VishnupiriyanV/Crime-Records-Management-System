@@ -21,7 +21,7 @@ export function Search() {
               <ul className="trail">
                 {data.complaints.map((c) => (
                   <li key={c.complaint_id}>
-                    <span><Link to={`/complaints/${c.complaint_id}`}>{c.title}</Link> <span className="muted">{c.location}</span></span>
+                    <span><Link to={`/complaints/${c.complaint_id}`}>{c.title}</Link> <span className="muted">{c.fir_no}, {c.location}</span></span>
                     <Status value={c.status} />
                   </li>
                 ))}

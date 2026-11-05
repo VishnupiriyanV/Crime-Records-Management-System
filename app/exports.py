@@ -27,7 +27,8 @@ def _latin(text):
     return text.encode("latin-1", "replace").decode("latin-1")
 
 
-def case_pdf(case, evidence, linked, reports, timeline):
+def case_pdf(case, evidence, linked, reports, timeline, extra=None):
+    extra = extra or {}
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
@@ -47,6 +48,7 @@ def case_pdf(case, evidence, linked, reports, timeline):
     pdf.set_font("Helvetica", "B", 16)
     pdf.cell(0, 9, _latin(f"Case {case['case_id']}: {case['title']}"), new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 6, _latin(f"{case['fir_no']}  |  {case['category']}, {case['severity']} severity"), new_x="LMARGIN", new_y="NEXT")
     pdf.cell(0, 6, _latin(f"{case['status']}, opened {case['date_opened']} at {case['station']}"), new_x="LMARGIN", new_y="NEXT")
 
     heading("Complaint")
@@ -67,6 +69,29 @@ def case_pdf(case, evidence, linked, reports, timeline):
         line("No evidence recorded.")
     for item in evidence:
         line(f"{item['evidence_no']}. {item['type']} ({item['date_collected']}): {item['description']}")
+        for step in item.get("custody", []):
+            where = f" - {step['where']}" if step["where"] else ""
+            line(f"      {step['at'][:16]}  {step['action']}{where} ({step['by']})")
+
+    chargesheet = extra.get("chargesheet")
+    if chargesheet:
+        heading("Chargesheet")
+        line(f"Filed {chargesheet['filed_on']} by {chargesheet['filed_by']}", bold=True)
+        line(f"Sections: {chargesheet['sections']}")
+        line(chargesheet["summary"])
+    if extra.get("statements"):
+        heading("Statements")
+        for item in extra["statements"]:
+            line(f"{item['kind'].capitalize()} {item['person']} ({item['recorded_at'][:10]})", bold=True)
+            line(item["body"])
+    if extra.get("arrests"):
+        heading("Arrests")
+        for item in extra["arrests"]:
+            line(f"{item['person']}, {item['arrested_on']}, {item['place']}. Charges: {item['charges']}")
+    if extra.get("court_dates"):
+        heading("Court dates")
+        for item in extra["court_dates"]:
+            line(f"{item['date']}  {item['court']}: {item['purpose']}" + (f" (outcome: {item['outcome']})" if item["outcome"] else ""))
 
     heading("Reports")
     if not reports:

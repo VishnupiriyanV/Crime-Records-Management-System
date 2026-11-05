@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from fastapi.responses import Response
 
 from ..auth import login_required
+from ..constants import with_fir
 from ..db import many
 from ..exports import case_pdf, to_csv
 from ..timeline import case_timeline
@@ -23,23 +24,25 @@ def _csv(name, text):
 
 
 @router.get("/complaints.csv")
-def complaints(status: str = "", q: str = "", sort: str = "no", dir: str = "desc", user=login_required()):
-    clause, args = complaint_filter(user, status, q)
+def complaints(status: str = "", q: str = "", category: str = "", severity: str = "", sort: str = "no",
+               dir: str = "desc", user=login_required()):
+    clause, args = complaint_filter(user, status, q, category, severity)
     rows = many(f"{COMPLAINT_SELECT} {clause} ORDER BY {order_by(COMPLAINT_SORTS, sort, dir, 'no')}", *args)
+    rows = [with_fir(r) for r in rows]
     columns = [
-        ("No.", "complaint_id"), ("Title", "title"), ("Filed by", "citizen_name"), ("Location", "location"),
+        ("FIR no.", "fir_no"), ("Title", "title"), ("Category", "category"), ("Severity", "severity"), ("Filed by", "citizen_name"), ("Location", "location"),
         ("Incident date", "incident_date"), ("Filed on", "date_filed"), ("Status", "status"), ("Case status", "case_status"),
     ]
     return _csv("complaints", to_csv(columns, rows))
 
 
 @router.get("/cases.csv")
-def cases(status: str = "", q: str = "", mine: str = "", sort: str = "no", dir: str = "desc",
+def cases(status: str = "", q: str = "", mine: str = "", category: str = "", sort: str = "no", dir: str = "desc",
           user=login_required("officer", "admin")):
-    clause, args = case_filter(status, q, mine, user)
-    rows = many(f"{CASE_SELECT} {clause} ORDER BY {order_by(CASE_SORTS, sort, dir, 'no')}", *args)
+    clause, args = case_filter(status, q, mine, user, category)
+    rows = [with_fir(r) for r in many(f"{CASE_SELECT} {clause} ORDER BY {order_by(CASE_SORTS, sort, dir, 'no')}", *args)]
     columns = [
-        ("Case", "case_id"), ("Complaint", "title"), ("Filed by", "citizen_name"), ("Station", "station"),
+        ("Case", "case_id"), ("FIR no.", "fir_no"), ("Category", "category"), ("Complaint", "title"), ("Filed by", "citizen_name"), ("Station", "station"),
         ("Officer", "officer_name"), ("Opened", "date_opened"), ("Status", "status"),
     ]
     return _csv("cases", to_csv(columns, rows))
@@ -68,7 +71,13 @@ def case_file(case_id: int, user=login_required("officer", "admin")):
         " LEFT JOIN users u ON u.user_id = o.user_id WHERE r.case_id = ? ORDER BY r.report_id",
         case_id,
     )
-    pdf = case_pdf(case, evidence, linked, reports, case_timeline(case, reports))
+    extra = {
+        "statements": clean(mdb().statements.find({"case_id": case_id}).sort("no", 1)),
+        "arrests": clean(mdb().arrests.find({"case_id": case_id}).sort("no", 1)),
+        "court_dates": clean(mdb().court_dates.find({"case_id": case_id}).sort("date", 1)),
+        "chargesheet": (clean(mdb().chargesheets.find({"case_id": case_id})) or [None])[0],
+    }
+    pdf = case_pdf(with_fir(case), evidence, linked, reports, case_timeline(case, reports), extra)
     return Response(
         pdf, media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="case-{case_id}.pdf"'},

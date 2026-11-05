@@ -7,7 +7,7 @@ A web app for a DBMS lab. Citizens file and track complaints; police officers an
 - **Relational database:** SQLite (default), PostgreSQL or MySQL, chosen by one setting. It holds users, complaints, cases, criminals and reports.
 - **MongoDB:** holds the document-shaped data: evidence, citizen notes, notifications, uploaded files and the status audit trail. Rows and documents are linked by id.
 
-Beyond the core flow it has charts on the dashboard and reports, a timeline on every case, one search box across complaints, cases and records, CSV exports of the lists and a PDF of each case file, in-page preview of uploaded images, PDFs and text, an admin audit log, live alerts, sortable lists, keyboard shortcuts (press `?`), and a dark mode.
+Beyond the core flow it has charts on the dashboard and reports, a timeline on every case, one search box across complaints, cases and records, CSV exports of the lists and a PDF of each case file, in-page preview of uploaded images, PDFs and text, an admin audit log, live alerts, sortable lists, keyboard shortcuts (press `?`), a dark mode, FIR numbers and crime categories, a map with busiest areas, a full case file (statements, arrests, chargesheet, court dates, evidence chain of custody), and station and officer pages.
 
 ## Run it
 
@@ -28,6 +28,16 @@ For frontend work, run `npm run dev` in `frontend/` (port 5173, it proxies `/api
 
 The seed creates three demo accounts (`admin@crms.test`, `officer@crms.test`, `citizen@crms.test`) that share the password `password123`. Change or delete them before using the app for anything real.
 
+For a fuller demo, add a year of made-up records on top of the demo accounts (it needs MongoDB running):
+
+```
+.venv/bin/python -m app.seed --bulk 300
+```
+
+That adds 300 complaints over the last year with their cases, evidence, statements, arrests, chargesheets and court dates, five stations with map coordinates, and a few officers each. It only runs on a database with fewer than 20 complaints.
+
+The map page and the location picker load their background tiles from OpenStreetMap, so they need an internet connection. Everything else works offline.
+
 ### Choosing the relational database
 
 SQLite needs nothing. For PostgreSQL or MySQL, start the matching container and point `CRMS_DB_URL` at it before seeding and running:
@@ -38,7 +48,7 @@ export CRMS_DB_URL=postgresql://crms:crms@localhost:5432/crms     # or
 export CRMS_DB_URL=mysql://crms:crms@localhost:3306/crms
 ```
 
-The tables are created on first start from `app/schemas/<database>.sql`. The passwords in `docker-compose.yml` are for local development only.
+The tables are created on first start from `app/schemas/<database>.sql`. A database made by an older version gets any new columns added automatically on the next start. The passwords in `docker-compose.yml` are for local development only.
 
 Other settings, all optional on a development machine: `MONGO_URL` (default `mongodb://localhost:27017`), `MONGO_DB` (default `crms`), `CRMS_SECRET` (session signing key).
 

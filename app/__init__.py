@@ -10,7 +10,7 @@ from . import db, mongo
 from .auth import check_csrf
 from .lifecycle import RuleError
 from .main_config import ROOT, database_url, mongo_name, mongo_url, production, secret_key
-from .routes import account, admin, attachments, audit, cases, complaints, criminals, exports, search
+from .routes import account, admin, attachments, audit, cases, complaints, criminals, exports, hotspots, search, stations
 
 DIST = ROOT / "frontend" / "dist"
 
@@ -43,7 +43,7 @@ def create_app(database=None, secret=None, mongo_client=None):
         https_only=production(),  # behind HTTPS the cookie is never sent in the clear
     )
 
-    for module in (account, complaints, attachments, cases, criminals, admin, search, exports, audit):
+    for module in (account, complaints, attachments, cases, criminals, admin, search, exports, audit, hotspots, stations):
         app.include_router(module.router)
 
     @app.exception_handler(RuleError)

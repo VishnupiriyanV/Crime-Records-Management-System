@@ -11,7 +11,10 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS police_station (
     station_id   INTEGER PRIMARY KEY AUTOINCREMENT,
     name         TEXT NOT NULL UNIQUE,
-    jurisdiction TEXT NOT NULL
+    jurisdiction TEXT NOT NULL,
+    phone        VARCHAR(40),
+    latitude     DOUBLE PRECISION,
+    longitude    DOUBLE PRECISION
 );
 
 CREATE TABLE IF NOT EXISTS citizen (
@@ -44,7 +47,11 @@ CREATE TABLE IF NOT EXISTS complaint (
     date_filed    TEXT NOT NULL DEFAULT (date('now')),
     status        TEXT NOT NULL DEFAULT 'Filed'
                   CHECK (status IN ('Filed', 'Verified', 'Rejected')),
-    reject_reason TEXT
+    reject_reason TEXT,
+    category      VARCHAR(60) NOT NULL DEFAULT 'Other',
+    severity      VARCHAR(20) NOT NULL DEFAULT 'Medium',
+    latitude      DOUBLE PRECISION,
+    longitude     DOUBLE PRECISION
 );
 
 -- at most one case per complaint, enforced by the UNIQUE on complaint_id

@@ -5,7 +5,7 @@ from ..auth import hash_password, login_required
 from ..db import get_db, many, one, run
 from ..forms import as_dict, as_dicts, need
 from ..lifecycle import RuleError, log_status
-from ..stats import monthly_complaints
+from ..stats import by_category, by_severity, monthly_complaints
 from ..mongo import mdb
 
 router = APIRouter(prefix="/api")
@@ -26,6 +26,9 @@ class NewUser(BaseModel):
 class StationBody(BaseModel):
     name: str = ""
     jurisdiction: str = ""
+    phone: str = ""
+    latitude: float | None = None
+    longitude: float | None = None
 
 
 class RoleChange(BaseModel):
@@ -69,6 +72,7 @@ def reports(start: str = "", end: str = "", criminal: str = "", user=login_requi
         "by_status": as_dicts(by_status), "by_station": as_dicts(by_station), "period": period,
         "criminals": as_dicts(many("SELECT criminal_id, name FROM criminal ORDER BY name")),
         "history": history, "monthly": monthly_complaints(),
+        "by_category": by_category(), "by_severity": by_severity(),
     }
 
 
@@ -167,7 +171,14 @@ def create_station(body: StationBody, user=login_required("admin")):
     area = need(body.jurisdiction, "Area covered", 200)
     if one("SELECT 1 FROM police_station WHERE name = ?", name):
         raise RuleError("A station with that name already exists.")
-    station_id = run("INSERT INTO police_station (name, jurisdiction) VALUES (?, ?)", name, area)
+    if (body.latitude is None) != (body.longitude is None):
+        raise RuleError("Give both a latitude and a longitude, or neither.")
+    if body.latitude is not None and not (-90 <= body.latitude <= 90 and -180 <= body.longitude <= 180):
+        raise RuleError("Those coordinates are outside the valid range.")
+    station_id = run(
+        "INSERT INTO police_station (name, jurisdiction, phone, latitude, longitude) VALUES (?, ?, ?, ?, ?)",
+        name, area, need(body.phone, "Phone", 40, required=False) or None, body.latitude, body.longitude,
+    )
     get_db().commit()
     log_status("station", station_id, None, f"Added {name}", user["user_id"])
     return {"station_id": station_id}

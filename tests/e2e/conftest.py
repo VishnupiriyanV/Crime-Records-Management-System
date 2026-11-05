@@ -64,10 +64,13 @@ def browser():
 @pytest.fixture
 def page(browser, site):
     context = browser.new_context(viewport={"width": 1200, "height": 800})
+    # the map tiles come from the internet; the tests answer with a blank image instead
+    context.route("**/tile.openstreetmap.org/**", lambda r: r.fulfill(status=200, body=b"", content_type="image/png"))
     page = context.new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
-    page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+    # a 400 from the API is the app refusing something on purpose, which some tests provoke
+    page.on("console", lambda m: errors.append(m.text) if m.type == "error" and "status of 400" not in m.text else None)
     page.base = site
     yield page
     context.close()

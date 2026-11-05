@@ -1,14 +1,14 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { api, withQuery } from '../api.js';
+import { api, upload, withQuery } from '../api.js';
 import { Bars, Line } from '../charts.jsx';
-import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, SortTh, Status, Timeline, useAct, useLoad } from '../ui.jsx';
+import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, SortTh, Status, Tags, Timeline, useAct, useLoad } from '../ui.jsx';
 import { useSession } from '../session.jsx';
 
 export function Dashboard() {
   const { data, error, loading, reload } = useLoad('/dashboard');
   if (loading) return <Loading />;
   if (error) return <Failed error={error} retry={reload} />;
-  const { counts, queue, mine_rows, unassigned, by_status, monthly } = data;
+  const { counts, queue, mine_rows, unassigned, by_status, by_category, monthly, hearings } = data;
 
   return (
     <>
@@ -28,6 +28,26 @@ export function Dashboard() {
         <section className="panel">
           <h2>Complaints filed, last 12 months</h2>
           <Line points={monthly} title="Complaints filed per month" />
+        </section>
+      </div>
+
+      <div className="cols cols--even">
+        <section className="panel">
+          <h2>Complaints by category</h2>
+          {by_category.length ? <Bars rows={by_category} label="category" value="total" title="Complaints by category" /> : <Empty>No complaints yet.</Empty>}
+        </section>
+        <section className="panel">
+          <h2>Upcoming court dates</h2>
+          {hearings.length ? (
+            <ul className="trail">
+              {hearings.map((h) => (
+                <li key={`${h.case_id}-${h.no}`}>
+                  <span><Link to={`/cases/${h.case_id}`}>{h.title}</Link><span className="muted"> {h.court}, {h.purpose}</span></span>
+                  <span className="num">{h.date}</span>
+                </li>
+              ))}
+            </ul>
+          ) : <Empty>No hearings are scheduled.</Empty>}
         </section>
       </div>
 
@@ -74,9 +94,9 @@ export function Dashboard() {
 
 export function Cases() {
   const [params] = useSearchParams();
-  const query = { q: params.get('q') || '', status: params.get('status') || '', mine: params.get('mine') || '', page: params.get('page') || '', sort: params.get('sort') || '', dir: params.get('dir') || '' };
+  const query = { q: params.get('q') || '', status: params.get('status') || '', mine: params.get('mine') || '', category: params.get('category') || '', page: params.get('page') || '', sort: params.get('sort') || '', dir: params.get('dir') || '' };
   const { data, error, loading, reload } = useLoad(withQuery('/cases', query));
-  const filtered = query.q || query.status || query.mine;
+  const filtered = query.q || query.status || query.mine || query.category;
 
   return (
     <>
@@ -89,6 +109,12 @@ export function Cases() {
               <select id="status" name="status" defaultValue={p.get('status') || ''}>
                 <option value="">All</option>
                 {(data?.statuses || []).map((s) => <option key={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="Category" id="category">
+              <select id="category" name="category" defaultValue={p.get('category') || ''}>
+                <option value="">All</option>
+                {(data?.categories || []).map((c) => <option key={c}>{c}</option>)}
               </select>
             </Field>
             <div className="field row-end"><label><input type="checkbox" name="mine" value="1" defaultChecked={p.get('mine') === '1'} />Only mine</label></div>
@@ -105,11 +131,12 @@ export function Cases() {
           ) : (
             <>
               <div className="table-wrap"><table className="data">
-                <thead><tr><SortTh id="no" className="r">Case</SortTh><SortTh id="title">Complaint</SortTh><SortTh id="station">Station</SortTh><SortTh id="officer">Officer</SortTh><SortTh id="opened">Opened</SortTh><SortTh id="status">Status</SortTh></tr></thead>
+                <thead><tr><SortTh id="no" className="r">Case</SortTh><SortTh id="title">Complaint</SortTh><th>Category</th><SortTh id="station">Station</SortTh><SortTh id="officer">Officer</SortTh><SortTh id="opened">Opened</SortTh><SortTh id="status">Status</SortTh></tr></thead>
                 <tbody>{data.items.map((c) => (
                   <tr key={c.case_id}>
                     <td className="num r">{c.case_id}</td>
-                    <td><Link to={`/cases/${c.case_id}`}>{c.title}</Link><div className="muted">{c.citizen_name}</div></td>
+                    <td><Link to={`/cases/${c.case_id}`}>{c.title}</Link><div className="muted">{c.fir_no}, {c.citizen_name}</div></td>
+                    <td><Tags category={c.category} severity={c.severity} /></td>
                     <td>{c.station}</td><td>{c.officer_name || 'Unassigned'}</td>
                     <td className="num">{c.date_opened}</td><td><Status value={c.status} /></td>
                   </tr>
@@ -132,9 +159,19 @@ export function Case() {
   if (loading) return <Loading />;
   if (error) return <Failed error={error} retry={error.status === 404 ? undefined : reload} />;
 
-  const { case: c, evidence, linked, available, reports, notes, timeline, attachments, officers, editable, next_states } = data;
+  const { case: c, evidence, linked, available, reports, notes, timeline, attachments, officers, editable, next_states, statements, arrests, court_dates, chargesheet, custody_actions } = data;
   const send = (path, body, ok, method = 'POST') => act(() => api(`/cases/${id}${path}`, { method, body }), ok);
   // reset the form once the write has gone through
+  const sendFile = (no) => async (event) => {
+    const { file } = formData(event);
+    const form = event.target;
+    if (!file || !file.size) return;
+    const done = await act(() => upload(`/cases/${id}/evidence/${no}/files`, file), 'File added.');
+    if (done) form.reset();
+  };
+  // a charge sheet is filed on its own form, so the plain status list leaves it out
+  const manualStates = next_states.filter((x) => x !== 'Chargesheet Filed');
+  const chargeable = linked.filter((p) => p.role === 'suspect' || p.role === 'accused');
   const submit = (path, ok, shape = (b) => b) => async (event) => {
     const body = shape(formData(event));
     const form = event.target;
@@ -145,8 +182,8 @@ export function Case() {
   return (
     <>
       <Crumbs trail={[['Cases', '/cases']]} here={`Case ${c.case_id}`} />
-      <PageHead title={c.title} text={`Opened ${c.date_opened} at ${c.station}`}>
-        <div className="head-actions"><Status value={c.status} /><a className="btn btn--small" href={`/api/export/cases/${c.case_id}.pdf`}>Download PDF</a></div>
+      <PageHead title={c.title} text={`${c.fir_no}, opened ${c.date_opened} at ${c.station}`}>
+        <div className="head-actions"><Tags category={c.category} severity={c.severity} /><Status value={c.status} /><a className="btn btn--small" href={`/api/export/cases/${c.case_id}.pdf`}>Download PDF</a></div>
       </PageHead>
       {!editable && (
         <div className="flash">
@@ -177,14 +214,41 @@ export function Case() {
 
           <section className="panel">
             <h2>Evidence</h2>
-            {evidence.length ? (
-              <div className="table-wrap"><table className="data">
-                <thead><tr><th className="r">No.</th><th>Type</th><th>Description</th><th>Collected</th></tr></thead>
-                <tbody>{evidence.map((e) => (
-                  <tr key={e.evidence_no}><td className="num r">{e.evidence_no}</td><td>{e.type}</td><td className="prose">{e.description}</td><td className="num">{e.date_collected}</td></tr>
-                ))}</tbody>
-              </table></div>
-            ) : <p className="muted">No evidence recorded.</p>}
+            {evidence.length === 0 && <p className="muted">No evidence recorded.</p>}
+            {evidence.map((e) => (
+              <div className="evidence" key={e.evidence_no}>
+                <div className="evidence-head"><b>{e.evidence_no}. {e.type}</b><span className="num muted">{e.date_collected}</span></div>
+                <p className="prose">{e.description}</p>
+                <ol className="custody" aria-label="Chain of custody">
+                  {e.custody.map((c2, i) => (
+                    <li key={i}>
+                      <span className="num muted">{c2.at.slice(0, 16)}</span>
+                      <span>{c2.action}{c2.where && `, ${c2.where}`}<span className="muted"> by {c2.by}</span>{c2.note && <span className="muted">. {c2.note}</span>}</span>
+                    </li>
+                  ))}
+                </ol>
+                {e.files.length > 0 && <Attachments items={e.files} />}
+                {editable && (
+                  <details style={{ marginTop: 'var(--space-sm)' }}>
+                    <summary>Log movement or attach a file</summary>
+                    <form onSubmit={submit(`/evidence/${e.evidence_no}/custody`, 'Movement logged.')}>
+                      <div className="row">
+                        <Field label="What happened" id={`act-${e.evidence_no}`}><select id={`act-${e.evidence_no}`} name="action">{custody_actions.map((x) => <option key={x}>{x}</option>)}</select></Field>
+                        <Field label="Where it is now" id={`where-${e.evidence_no}`}><input id={`where-${e.evidence_no}`} name="where" required /></Field>
+                        <Field label="Note" id={`note-${e.evidence_no}`}><input id={`note-${e.evidence_no}`} name="note" /></Field>
+                        <button className="btn" type="submit">Log</button>
+                      </div>
+                    </form>
+                    <form onSubmit={sendFile(e.evidence_no)} style={{ marginTop: 'var(--space-sm)' }}>
+                      <div className="row">
+                        <Field label="File" id={`file-${e.evidence_no}`}><input id={`file-${e.evidence_no}`} name="file" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt" required /></Field>
+                        <button className="btn" type="submit">Attach</button>
+                      </div>
+                    </form>
+                  </details>
+                )}
+              </div>
+            ))}
             {editable && (
               <details style={{ marginTop: 'var(--space-md)' }}>
                 <summary>Record evidence</summary>
@@ -193,6 +257,55 @@ export function Case() {
                   <Field label="Description" id="ev-desc"><textarea id="ev-desc" name="description" required /></Field>
                   <button className="btn" type="submit">Save evidence</button>
                 </form>
+              </details>
+            )}
+          </section>
+
+          <section className="panel">
+            <h2>Statements</h2>
+            {statements.length === 0 && <p className="muted">No statements recorded.</p>}
+            {statements.map((x) => (
+              <div className="note" key={x.no}><small>{x.kind}: {x.person}, {x.recorded_at.slice(0, 10)}, recorded by {x.recorded_by}</small><div className="prose">{x.body}</div></div>
+            ))}
+            {editable && (
+              <details style={{ marginTop: 'var(--space-md)' }}>
+                <summary>Record a statement</summary>
+                <form onSubmit={submit('/statements', 'Statement recorded.')}>
+                  <div className="row">
+                    <Field label="Given by" id="st-kind"><select id="st-kind" name="kind"><option>witness</option><option>victim</option><option>accused</option><option>suspect</option></select></Field>
+                    <Field label="Name" id="st-person"><input id="st-person" name="person" required /></Field>
+                  </div>
+                  <Field label="Statement" id="st-body"><textarea id="st-body" name="body" required /></Field>
+                  <button className="btn" type="submit">Save statement</button>
+                </form>
+              </details>
+            )}
+          </section>
+
+          <section className="panel">
+            <h2>Arrests</h2>
+            {arrests.length ? (
+              <div className="table-wrap"><table className="data">
+                <thead><tr><th>Person</th><th>Date</th><th>Place</th><th>Charges</th></tr></thead>
+                <tbody>{arrests.map((x) => <tr key={x.no}><td>{x.person}</td><td className="num">{x.arrested_on}</td><td>{x.place}</td><td>{x.charges}</td></tr>)}</tbody>
+              </table></div>
+            ) : <p className="muted">Nobody has been arrested in this case.</p>}
+            {editable && (
+              <details style={{ marginTop: 'var(--space-md)' }}>
+                <summary>Record an arrest</summary>
+                {chargeable.length ? (
+                  <form onSubmit={submit('/arrests', 'Arrest recorded.', (b) => ({ ...b, criminal_id: Number(b.criminal_id) }))}>
+                    <div className="row">
+                      <Field label="Person" id="ar-person"><select id="ar-person" name="criminal_id">{chargeable.map((p) => <option key={p.criminal_id} value={p.criminal_id}>{p.name}</option>)}</select></Field>
+                      <Field label="Date" id="ar-date"><input id="ar-date" name="arrested_on" type="date" required /></Field>
+                    </div>
+                    <div className="row">
+                      <Field label="Place" id="ar-place"><input id="ar-place" name="place" required /></Field>
+                      <Field label="Charges" id="ar-charges"><input id="ar-charges" name="charges" required /></Field>
+                    </div>
+                    <button className="btn" type="submit">Save arrest</button>
+                  </form>
+                ) : <p className="muted">Link a suspect or accused person to the case first.</p>}
               </details>
             )}
           </section>
@@ -253,11 +366,60 @@ export function Case() {
               <dt>Current</dt><dd><Status value={c.status} /></dd>
               <dt>Officer</dt><dd>{c.officer_name || 'Unassigned'}</dd>
             </dl>
-            {editable && next_states.length > 0 && (
+            {editable && manualStates.length > 0 && (
               <form onSubmit={submit('/status', 'Case status updated.')} style={{ marginTop: 'var(--space-md)' }}>
-                <Field label="Move to" id="status"><select id="status" name="status">{next_states.map((s) => <option key={s}>{s}</option>)}</select></Field>
+                <Field label="Move to" id="status"><select id="status" name="status">{manualStates.map((s) => <option key={s}>{s}</option>)}</select></Field>
                 <button className="btn btn--primary" type="submit">Update status</button>
               </form>
+            )}
+          </section>
+
+          <section className="panel">
+            <h2>Chargesheet</h2>
+            {chargesheet ? (
+              <dl className="facts">
+                <dt>Filed</dt><dd className="num">{chargesheet.filed_on}</dd>
+                <dt>Sections</dt><dd>{chargesheet.sections}</dd>
+                <dt>Summary</dt><dd className="prose">{chargesheet.summary}</dd>
+              </dl>
+            ) : <p className="muted">Not filed yet.</p>}
+            {editable && !chargesheet && c.status === 'Under Investigation' && (
+              <details style={{ marginTop: 'var(--space-md)' }}>
+                <summary>File the chargesheet</summary>
+                <form onSubmit={submit('/chargesheet', 'Chargesheet filed. The case is now at Chargesheet Filed.')}>
+                  <Field label="Sections" id="cs-sections" hint="Needs at least one suspect or accused linked to the case."><input id="cs-sections" name="sections" placeholder="BNS 303" required /></Field>
+                  <Field label="Summary" id="cs-summary"><textarea id="cs-summary" name="summary" required /></Field>
+                  <button className="btn btn--primary" type="submit">File chargesheet</button>
+                </form>
+              </details>
+            )}
+          </section>
+
+          <section className="panel">
+            <h2>Court dates</h2>
+            {court_dates.length === 0 && <p className="muted">{chargesheet ? 'No court dates set.' : 'Court dates can be set once the chargesheet is filed.'}</p>}
+            {court_dates.map((d) => (
+              <div className="note" key={d.no}>
+                <small>{d.date}, {d.court}</small>
+                <div>{d.purpose}</div>
+                {d.outcome ? <div className="muted">Outcome: {d.outcome}</div> : editable && (
+                  <form className="inline-form" onSubmit={submit(`/court-dates/${d.no}/outcome`, 'Outcome saved.')}>
+                    <input name="outcome" placeholder="Outcome" aria-label="Outcome" required />
+                    <button className="btn btn--small" type="submit">Save</button>
+                  </form>
+                )}
+              </div>
+            ))}
+            {editable && chargesheet && (
+              <details style={{ marginTop: 'var(--space-md)' }}>
+                <summary>Set a court date</summary>
+                <form onSubmit={submit('/court-dates', 'Court date set.')}>
+                  <Field label="Date" id="cd-date"><input id="cd-date" name="date" type="date" required /></Field>
+                  <Field label="Court" id="cd-court"><input id="cd-court" name="court" required /></Field>
+                  <Field label="Purpose" id="cd-purpose"><input id="cd-purpose" name="purpose" placeholder="First hearing" required /></Field>
+                  <button className="btn" type="submit">Set date</button>
+                </form>
+              </details>
             )}
           </section>
 

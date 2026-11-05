@@ -39,6 +39,18 @@ def case_timeline(case, reports):
         # older records only kept the date; those are placed at the end of their day
         when = item.get("created_at") or f"{item['date_collected']} 23:59:59"
         events.append((when, "evidence", f"Evidence {item['evidence_no']} recorded: {item['type']}", None))
+    for entry in clean(mdb().evidence.find({"case_id": case_id})):
+        # the first custody line is the collection itself, already shown above
+        for step in (entry.get("custody") or [])[1:]:
+            events.append((step["at"], "evidence", f"Evidence {entry['evidence_no']} {step['action']}: {step['where']}", step["by"]))
+    for item in clean(mdb().statements.find({"case_id": case_id})):
+        events.append((item["recorded_at"], "statement", f"Statement from {item['kind']} {item['person']}", item["recorded_by"]))
+    for item in clean(mdb().arrests.find({"case_id": case_id})):
+        events.append((item["recorded_at"], "arrest", f"{item['person']} arrested at {item['place']}", item["recorded_by"]))
+    for item in clean(mdb().chargesheets.find({"case_id": case_id})):
+        events.append((item["created_at"], "status", f"Chargesheet filed under {item['sections']}", item["filed_by"]))
+    for item in clean(mdb().court_dates.find({"case_id": case_id})):
+        events.append((item["created_at"], "court", f"Court date set for {item['date']} at {item['court']}", item["set_by"]))
     for report in reports:
         events.append((f"{report['date_generated']} 23:59:59", "report", "Report written", report["author"]))
     for note in clean(mdb().notes.find({"complaint_id": complaint_id})):

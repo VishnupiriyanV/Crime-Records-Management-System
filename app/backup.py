@@ -24,6 +24,7 @@ TABLES = [
 ]
 COLLECTIONS = [
     "evidence", "notes", "notifications", "status_log", "attachments", "attachment_files",
+    "statements", "arrests", "court_dates", "chargesheets", "officer_photos",
 ]
 
 
@@ -77,7 +78,10 @@ def restore_backup(archive, url):
                 if key and rows:
                     _sync_counter(conn, table, key)
             for name in COLLECTIONS:
-                text = tar.extractfile(f"mongo/{name}.jsonl").read().decode()
+                try:
+                    text = tar.extractfile(f"mongo/{name}.jsonl").read().decode()
+                except KeyError:
+                    continue  # an archive from before this collection existed
                 docs = [json_util.loads(line) for line in text.splitlines() if line]
                 if docs:
                     mongo.mdb()[name].insert_many(docs)

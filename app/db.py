@@ -8,6 +8,8 @@ from contextvars import ContextVar
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+from . import migrations
+
 SCHEMAS = Path(__file__).parent / "schemas"
 
 # primary keys that the database numbers itself, needed to read an insert's id back on PostgreSQL
@@ -115,6 +117,7 @@ def init_db(url):
     conn = connect(url)
     try:
         if _has_users_table(conn):
+            migrations.upgrade(conn)
             return
         script = (SCHEMAS / f"{conn.dialect}.sql").read_text()
         for statement in script.split(";"):

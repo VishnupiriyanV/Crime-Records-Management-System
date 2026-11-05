@@ -26,3 +26,15 @@ def monthly_complaints(count=12):
         if key in totals:
             totals[key] += 1
     return [{"month": m, "total": totals[m]} for m in months]
+
+
+def by_category():
+    return [dict(r) for r in many(
+        "SELECT category, COUNT(*) AS total FROM complaint GROUP BY category ORDER BY total DESC, category"
+    )]
+
+
+def by_severity():
+    order = {"High": 0, "Medium": 1, "Low": 2}
+    rows = [dict(r) for r in many("SELECT severity, COUNT(*) AS total FROM complaint GROUP BY severity")]
+    return sorted(rows, key=lambda r: order.get(r["severity"], 9))

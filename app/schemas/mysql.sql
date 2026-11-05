@@ -11,7 +11,10 @@ CREATE TABLE users (
 CREATE TABLE police_station (
     station_id   INT AUTO_INCREMENT PRIMARY KEY,
     name         VARCHAR(200) NOT NULL UNIQUE,
-    jurisdiction VARCHAR(255) NOT NULL
+    jurisdiction VARCHAR(255) NOT NULL,
+    phone        VARCHAR(40),
+    latitude     DOUBLE PRECISION,
+    longitude    DOUBLE PRECISION
 );
 
 CREATE TABLE citizen (
@@ -44,7 +47,11 @@ CREATE TABLE complaint (
     date_filed    VARCHAR(255) NOT NULL DEFAULT (DATE_FORMAT(CURDATE(), '%Y-%m-%d')),
     status        VARCHAR(255) NOT NULL DEFAULT 'Filed'
                   CHECK (status IN ('Filed', 'Verified', 'Rejected')),
-    reject_reason TEXT
+    reject_reason TEXT,
+    category      VARCHAR(60) NOT NULL DEFAULT 'Other',
+    severity      VARCHAR(20) NOT NULL DEFAULT 'Medium',
+    latitude      DOUBLE PRECISION,
+    longitude     DOUBLE PRECISION
 );
 
 -- at most one case per complaint, enforced by the UNIQUE on complaint_id

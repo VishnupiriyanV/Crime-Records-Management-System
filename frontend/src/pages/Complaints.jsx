@@ -1,12 +1,14 @@
+import { useCallback, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, upload, withQuery } from '../api.js';
+import { MiniMap, PinPicker } from '../MapView.jsx';
 import { useSession } from '../session.jsx';
-import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Progress, SortTh, Status, useAct, useLoad } from '../ui.jsx';
+import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Progress, SortTh, Status, Tags, useAct, useLoad } from '../ui.jsx';
 
 export function Complaints() {
   const { user } = useSession();
   const [params] = useSearchParams();
-  const query = { q: params.get('q') || '', status: params.get('status') || '', page: params.get('page') || '', sort: params.get('sort') || '', dir: params.get('dir') || '' };
+  const query = { q: params.get('q') || '', status: params.get('status') || '', category: params.get('category') || '', severity: params.get('severity') || '', page: params.get('page') || '', sort: params.get('sort') || '', dir: params.get('dir') || '' };
   const { data, error, loading, reload } = useLoad(withQuery('/complaints', query));
   const citizen = user.role === 'citizen';
 
@@ -25,7 +27,19 @@ export function Complaints() {
       <Filters>
         {(p) => (
           <>
-            <Field label="Search" id="q"><input id="q" name="q" defaultValue={p.get('q') || ''} placeholder="Title or location" /></Field>
+            <Field label="Search" id="q"><input id="q" name="q" defaultValue={p.get('q') || ''} placeholder="Title, location or FIR number" /></Field>
+            <Field label="Category" id="category">
+              <select id="category" name="category" defaultValue={p.get('category') || ''}>
+                <option value="">All</option>
+                {(data?.categories || []).map((c) => <option key={c}>{c}</option>)}
+              </select>
+            </Field>
+            <Field label="Severity" id="severity">
+              <select id="severity" name="severity" defaultValue={p.get('severity') || ''}>
+                <option value="">All</option>
+                {(data?.severities || []).map((c) => <option key={c}>{c}</option>)}
+              </select>
+            </Field>
             <Field label="Status" id="status">
               <select id="status" name="status" defaultValue={p.get('status') || ''}>
                 <option value="">All</option>
@@ -40,7 +54,7 @@ export function Complaints() {
       {loading ? <Loading /> : error ? <Failed error={error} retry={reload} /> : (
         <div className="panel">
           {data.items.length === 0 ? (
-            query.q || query.status ? (
+            query.q || query.status || query.category || query.severity ? (
               <Empty action={<Link className="btn" to="/complaints">Clear filters</Link>}>No complaints match those filters.</Empty>
             ) : citizen ? (
               <Empty action={<Link className="btn btn--primary" to="/complaints/new">File a complaint</Link>}>
@@ -51,14 +65,15 @@ export function Complaints() {
             <>
               <div className="table-wrap"><table className="data">
                 <thead><tr>
-                  <SortTh id="no" className="r">No.</SortTh><SortTh id="title">Title</SortTh>{!citizen && <SortTh id="by">Filed by</SortTh>}
+                  <SortTh id="no">FIR no.</SortTh><SortTh id="title">Title</SortTh><SortTh id="category">Category</SortTh>{!citizen && <SortTh id="by">Filed by</SortTh>}
                   <SortTh id="location">Location</SortTh><SortTh id="filed">Filed on</SortTh><SortTh id="status">Status</SortTh><SortTh id="case">Case</SortTh>
                 </tr></thead>
                 <tbody>
                   {data.items.map((c) => (
                     <tr key={c.complaint_id}>
-                      <td className="num r">{c.complaint_id}</td>
+                      <td className="num">{c.fir_no}</td>
                       <td><Link to={`/complaints/${c.complaint_id}`}>{c.title}</Link></td>
+                      <td><Tags category={c.category} severity={c.severity} /></td>
                       {!citizen && <td>{c.citizen_name}</td>}
                       <td>{c.location}</td>
                       <td className="num">{c.date_filed}</td>
@@ -81,9 +96,21 @@ export function NewComplaint() {
   const navigate = useNavigate();
   const act = useAct();
   const { notice } = useSession();
+  const { data } = useLoad('/meta');
+  const [pin, setPin] = useState(null);
+  const pick = useCallback((at) => setPin(at), []);
+
+  const useMyLocation = () => {
+    if (!navigator.geolocation) return notice('This browser cannot share a location.', 'error');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setPin({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => notice('Could not get your location. Click the map instead.', 'error'),
+    );
+  };
 
   const submit = (event) => {
     const { file, ...body } = formData(event);
+    if (pin) { body.latitude = pin.lat; body.longitude = pin.lng; }
     return act(async () => {
       const { complaint_id } = await api('/complaints', { method: 'POST', body });
       let message = 'Complaint filed. You will be notified when it is reviewed.';
@@ -104,8 +131,19 @@ export function NewComplaint() {
         <Field label="Short title" id="title"><input id="title" name="title" maxLength={120} required /></Field>
         <Field label="What happened" id="description"><textarea id="description" name="description" required /></Field>
         <div className="row">
-          <Field label="Where" id="location"><input id="location" name="location" maxLength={200} required /></Field>
+          <Field label="Category" id="category">
+            <select id="category" name="category" defaultValue="Other">{(data?.categories || ['Other']).map((c) => <option key={c}>{c}</option>)}</select>
+          </Field>
           <Field label="Date of incident" id="incident_date"><input id="incident_date" name="incident_date" type="date" required /></Field>
+        </div>
+        <Field label="Where" id="location"><input id="location" name="location" maxLength={200} required /></Field>
+        <div className="field">
+          <label>Pin it on the map <span className="muted">(optional)</span></label>
+          <PinPicker value={pin} onChange={pick} />
+          <div className="row map-actions">
+            <button type="button" className="btn btn--small" onClick={useMyLocation}>Use my location</button>
+            {pin && <button type="button" className="btn btn--small" onClick={() => setPin(null)}>Remove pin</button>}
+          </div>
         </div>
         <Field label="Attach a file" id="file" hint="Optional. An image, PDF or text file, up to 5 MB.">
           <input id="file" name="file" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt" />
@@ -128,7 +166,7 @@ export function Complaint() {
   if (loading) return <Loading />;
   if (error) return <Failed error={error} retry={error.status === 404 ? undefined : reload} />;
 
-  const { complaint: c, case: kase, notes, history, attachments, stations, can_add_note } = data;
+  const { complaint: c, case: kase, notes, history, attachments, stations, can_add_note, categories, severities } = data;
   const staff = user.role !== 'citizen';
   const post = (path, body, ok) => act(() => api(`/complaints/${id}${path}`, { method: 'POST', body }), ok);
 
@@ -145,6 +183,7 @@ export function Complaint() {
     const done = await act(() => upload(`/complaints/${id}/attachments`, file), 'File added.');
     if (done) form.reset();
   };
+  const classify = (event) => post('/classify', formData(event), 'Classification saved.');
   const openCase = (event) => {
     const { station_id } = formData(event);
     return act(async () => {
@@ -157,7 +196,7 @@ export function Complaint() {
   return (
     <>
       <Crumbs trail={[['Complaints', '/complaints']]} here={`No. ${c.complaint_id}`} />
-      <PageHead title={c.title} text={`Filed by ${c.citizen_name} on ${c.date_filed}`}><Status value={c.status} /></PageHead>
+      <PageHead title={c.title} text={`${c.fir_no}, filed by ${c.citizen_name} on ${c.date_filed}`}><div className="head-actions"><Tags category={c.category} severity={c.severity} /><Status value={c.status} /></div></PageHead>
       <Progress complaint={c} kase={kase} />
 
       <div className="cols">
@@ -170,6 +209,7 @@ export function Complaint() {
               <dt>Description</dt><dd className="prose">{c.description}</dd>
               {c.status === 'Rejected' && <><dt>Reason</dt><dd>{c.reject_reason}</dd></>}
             </dl>
+            {c.latitude != null && <div style={{ marginTop: 'var(--space-md)' }}><MiniMap lat={c.latitude} lng={c.longitude} /></div>}
           </section>
 
           <section className="panel">
@@ -227,6 +267,17 @@ export function Complaint() {
               </p>
             )}
           </section>
+
+          {staff && (
+            <section className="panel">
+              <h2>Classification</h2>
+              <form onSubmit={classify}>
+                <Field label="Category" id="cl-category"><select id="cl-category" name="category" defaultValue={c.category}>{categories.map((x) => <option key={x}>{x}</option>)}</select></Field>
+                <Field label="Severity" id="cl-severity"><select id="cl-severity" name="severity" defaultValue={c.severity}>{severities.map((x) => <option key={x}>{x}</option>)}</select></Field>
+                <button className="btn" type="submit">Save</button>
+              </form>
+            </section>
+          )}
 
           {staff && c.status !== 'Rejected' && !kase && (
             <section className="panel">

@@ -38,7 +38,14 @@ def test_full_lifecycle(app, make_client):
     assert officer.post("/api/cases/1/status", json={"status": "Chargesheet Filed"}).status_code == 400
 
     admin.post("/api/cases/1/assign", json={"officer_id": 1})
-    assert officer.post("/api/cases/1/status", json={"status": "Chargesheet Filed"}).status_code == 200
+    # the status cannot be set by hand; it needs a chargesheet, and that needs someone to charge
+    assert officer.post("/api/cases/1/status", json={"status": "Chargesheet Filed"}).status_code == 400
+    sheet = {"sections": "BNS 303", "summary": "Window broken and goods taken."}
+    assert officer.post("/api/cases/1/chargesheet", json=sheet).status_code == 400
+    person = officer.post("/api/criminals", json={"name": "Ravi Menon"}).json()["criminal_id"]
+    officer.post("/api/cases/1/criminals", json={"criminal_id": person, "role": "accused"})
+    assert officer.post("/api/cases/1/chargesheet", json=sheet).status_code == 200
+    assert officer.get("/api/cases/1").json()["case"]["status"] == "Chargesheet Filed"
     assert officer.post("/api/cases/1/status", json={"status": "Closed (Resolved)"}).status_code == 200
     case = officer.get("/api/cases/1").json()
     assert case["case"]["status"] == "Closed (Resolved)"
