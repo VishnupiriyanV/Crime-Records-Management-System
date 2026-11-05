@@ -2,9 +2,9 @@ import re
 import secrets
 from pathlib import Path
 
+from bson import Binary
 from fastapi import APIRouter, HTTPException, UploadFile
-from fastapi.responses import FileResponse
-from starlette.requests import Request
+from fastapi.responses import Response
 
 from ..auth import is_staff, login_required
 from ..db import one
@@ -35,11 +35,11 @@ def _owned_complaint(complaint_id, user):
 
 
 def list_for(complaint_id):
-    return clean(mdb().attachments.find({"complaint_id": complaint_id}, {"stored": 0}).sort("_id", 1))
+    return clean(mdb().attachments.find({"complaint_id": complaint_id}).sort("_id", 1))
 
 
 @router.post("/complaints/{complaint_id}/attachments")
-async def upload(complaint_id: int, file: UploadFile, request: Request, user=login_required("citizen")):
+async def upload(complaint_id: int, file: UploadFile, user=login_required("citizen")):
     c = _owned_complaint(complaint_id, user)
     case = one('SELECT status FROM crime_case WHERE complaint_id = ?', complaint_id)
     if c["status"] == "Rejected" or (case and is_closed(case["status"])):
@@ -57,28 +57,26 @@ async def upload(complaint_id: int, file: UploadFile, request: Request, user=log
         raise RuleError("That file is empty.")
 
     attachment_id = secrets.token_hex(8)
-    folder = request.app.state.upload_dir
-    folder.mkdir(parents=True, exist_ok=True)
-    (folder / f"{attachment_id}{ext}").write_bytes(data)
     name = re.sub(r"[^\w.\- ]", "_", Path(file.filename).name)[:120]
+    mdb().attachment_files.insert_one({"attachment_id": attachment_id, "data": Binary(data)})
     mdb().attachments.insert_one({
         "attachment_id": attachment_id, "complaint_id": complaint_id, "filename": name,
-        "content_type": ALLOWED[ext], "size": len(data), "stored": f"{attachment_id}{ext}",
-        "uploaded_at": now(),
+        "content_type": ALLOWED[ext], "size": len(data), "uploaded_at": now(),
     })
     return {"attachment_id": attachment_id}
 
 
 @router.get("/attachments/{attachment_id}")
-def download(attachment_id: str, request: Request, user=login_required()):
+def download(attachment_id: str, user=login_required()):
     doc = mdb().attachments.find_one({"attachment_id": attachment_id})
-    if doc is None:
+    stored = mdb().attachment_files.find_one({"attachment_id": attachment_id})
+    if doc is None or stored is None:
         raise HTTPException(404, "That file does not exist.")
     _owned_complaint(doc["complaint_id"], user)
-    path = request.app.state.upload_dir / doc["stored"]
-    if not path.is_file():
-        raise HTTPException(404, "That file is no longer stored.")
-    return FileResponse(
-        path, media_type=doc["content_type"], filename=doc["filename"],
-        headers={"X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox"},
+    return Response(
+        bytes(stored["data"]), media_type=doc["content_type"],
+        headers={
+            "Content-Disposition": f'attachment; filename="{doc["filename"]}"',
+            "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox",
+        },
     )

@@ -4,20 +4,30 @@ The relational core (users, complaints, cases, criminals) stays in SQLite and is
 """
 from datetime import datetime, timezone
 
+import re
+
 from pymongo import ASCENDING, MongoClient
+from pymongo.errors import PyMongoError
 
 _db = None
 
 
 def configure(url=None, name="crms", client=None):
     global _db
-    client = client or MongoClient(url, serverSelectionTimeoutMS=3000)
+    if client is None:
+        client = MongoClient(url, serverSelectionTimeoutMS=3000)
+        try:
+            client.admin.command("ping")
+        except PyMongoError:
+            shown = re.sub(r"//[^@/]*@", "//", url or "")  # never print the password
+            raise RuntimeError(f"Cannot reach MongoDB at {shown}. Start it, or set MONGO_URL.") from None
     _db = client[name]
     _db.evidence.create_index([("case_id", ASCENDING), ("evidence_no", ASCENDING)], unique=True)
     _db.notes.create_index("complaint_id")
     _db.login_failures.create_index("key")
     _db.attachments.create_index("complaint_id")
     _db.attachments.create_index("attachment_id", unique=True)
+    _db.attachment_files.create_index("attachment_id", unique=True)
     _db.notifications.create_index([("user_id", ASCENDING), ("seen", ASCENDING)])
     _db.status_log.create_index([("entity", ASCENDING), ("entity_id", ASCENDING)])
     return _db

@@ -1,4 +1,8 @@
-"""Load demo stations, accounts and criminal records: python -m app.seed"""
+"""Load demo data (python -m app.seed) or create only a first admin (python -m app.seed --admin EMAIL)."""
+import argparse
+import os
+import sys
+
 from . import db
 from .auth import hash_password
 from .db import one, run
@@ -7,7 +11,7 @@ from .main_config import database_url
 DEMO_PASSWORD = "password123"
 
 
-def seed():
+def seed_demo():
     path = database_url()
     db.init_db(path)
     token = db.use(db.connect(path))
@@ -52,5 +56,29 @@ def seed():
         db.release(token)
 
 
+def seed_admin(email):
+    password = os.environ.get("CRMS_ADMIN_PASSWORD", "")
+    if len(password) < 12:
+        sys.exit("Set CRMS_ADMIN_PASSWORD to at least 12 characters.")
+    path = database_url()
+    db.init_db(path)
+    token = db.use(db.connect(path))
+    try:
+        if one("SELECT 1 FROM users LIMIT 1"):
+            sys.exit("The database already has users; nothing created.")
+        user_id = run(
+            "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'admin')",
+            "Administrator", email.strip().lower(), hash_password(password),
+        )
+        run("INSERT INTO admin (user_id) VALUES (?)", user_id)
+        db.get_db().commit()
+        print(f"Admin {email} created. Add police stations from the Users page after signing in.")
+    finally:
+        db.release(token)
+
+
 if __name__ == "__main__":
-    seed()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--admin", metavar="EMAIL", help="create only this admin; the password comes from CRMS_ADMIN_PASSWORD")
+    args = parser.parse_args()
+    seed_admin(args.admin) if args.admin else seed_demo()

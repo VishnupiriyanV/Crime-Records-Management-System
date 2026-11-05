@@ -33,9 +33,7 @@ def app(tmp_path):
     path = os.environ.get("CRMS_TEST_DB_URL") or f"sqlite:///{tmp_path / 'test.db'}"
     if db.dialect_of(path) != "sqlite":
         reset_database(path)
-    app = create_app(
-        database=path, secret="test", mongo_client=mongomock.MongoClient(), uploads=tmp_path / "uploads"
-    )
+    app = create_app(database=path, secret="test", mongo_client=mongomock.MongoClient())
     token = db.use(db.connect(path))
     conn = db.get_db()
     conn.execute("INSERT INTO police_station (name, jurisdiction) VALUES ('Central', 'Centre')")

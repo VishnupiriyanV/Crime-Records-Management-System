@@ -22,6 +22,11 @@ class NewUser(BaseModel):
     station_id: int | None = None
 
 
+class StationBody(BaseModel):
+    name: str = ""
+    jurisdiction: str = ""
+
+
 class RoleChange(BaseModel):
     role: str = ""
 
@@ -147,3 +152,14 @@ def toggle_active(user_id: int, user=login_required("admin")):
     run("UPDATE users SET active = 1 - active WHERE user_id = ?", user_id)
     get_db().commit()
     return {"ok": True}
+
+
+@router.post("/stations")
+def create_station(body: StationBody, user=login_required("admin")):
+    name = need(body.name, "Station name", 100)
+    area = need(body.jurisdiction, "Area covered", 200)
+    if one("SELECT 1 FROM police_station WHERE name = ?", name):
+        raise RuleError("A station with that name already exists.")
+    station_id = run("INSERT INTO police_station (name, jurisdiction) VALUES (?, ?)", name, area)
+    get_db().commit()
+    return {"station_id": station_id}

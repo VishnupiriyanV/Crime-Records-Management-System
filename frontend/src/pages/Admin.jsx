@@ -103,6 +103,12 @@ export function Users() {
     const done = await act(() => api('/users', { method: 'POST', body }), 'Account created.');
     if (done) form.reset();
   };
+  const addStation = async (event) => {
+    const body = formData(event);
+    const form = event.target;
+    const done = await act(() => api('/stations', { method: 'POST', body }), 'Station added.');
+    if (done) form.reset();
+  };
   const changeRole = (id) => (event) => {
     const body = formData(event);
     return act(() => api(`/users/${id}/role`, { method: 'PUT', body }), 'Role updated.');
@@ -137,6 +143,23 @@ export function Users() {
           ))}</tbody>
         </table></div>
         <p className="muted" style={{ marginTop: 'var(--space-sm)' }}>Officers need a badge, rank and station, so create them with the form below rather than by changing a role.</p>
+      </section>
+
+      <section className="panel">
+        <h2>Police stations</h2>
+        {data.stations.length ? (
+          <div className="table-wrap"><table className="data">
+            <thead><tr><th>Station</th><th>Area covered</th></tr></thead>
+            <tbody>{data.stations.map((s) => <tr key={s.station_id}><td>{s.name}</td><td>{s.jurisdiction}</td></tr>)}</tbody>
+          </table></div>
+        ) : <p className="muted">No stations yet. Add one before creating officers or registering cases.</p>}
+        <form onSubmit={addStation} style={{ marginTop: 'var(--space-md)' }}>
+          <div className="row">
+            <Field label="Station name" id="s-name"><input id="s-name" name="name" required /></Field>
+            <Field label="Area covered" id="s-area"><input id="s-area" name="jurisdiction" required /></Field>
+            <button className="btn" type="submit">Add station</button>
+          </div>
+        </form>
       </section>
 
       <section className="panel">

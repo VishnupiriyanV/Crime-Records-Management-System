@@ -4,6 +4,7 @@ frontend/dist/
 __pycache__/
 .pytest_cache/
 data/*.db
+backups/
 data/secret.key
 .env
 .DS_Store

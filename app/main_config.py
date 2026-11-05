@@ -10,9 +10,15 @@ def database_url():
     return os.environ.get("CRMS_DB_URL") or f"sqlite:///{ROOT / 'data' / 'crms.db'}"
 
 
+def production():
+    return os.environ.get("CRMS_ENV") == "production"
+
+
 def secret_key():
     if os.environ.get("CRMS_SECRET"):
         return os.environ["CRMS_SECRET"]
+    if production():
+        raise RuntimeError("Set CRMS_SECRET to a long random string when CRMS_ENV=production.")
     key_file = ROOT / "data" / "secret.key"
     if not key_file.exists():
         key_file.parent.mkdir(exist_ok=True)
@@ -26,7 +32,3 @@ def mongo_url():
 
 def mongo_name():
     return os.environ.get("MONGO_DB", "crms")
-
-
-def upload_dir():
-    return Path(os.environ.get("CRMS_UPLOADS", str(ROOT / "data" / "uploads")))

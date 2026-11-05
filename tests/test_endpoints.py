@@ -136,3 +136,51 @@ def test_officers_are_told_about_assignments(make_client):
     before = len(second.get("/api/notifications").json()["items"])
     admin.post("/api/cases/1/assign", json={"officer_id": 2})
     assert len(second.get("/api/notifications").json()["items"]) == before
+
+
+def test_backup_and_restore_round_trip(app, tmp_path, make_client):
+    import mongomock
+    from conftest import reset_database
+
+    from app import backup, create_app, db
+
+    asha, admin = seed_case(make_client)
+    asha.post("/api/complaints/1/attachments", files={"file": ("note.txt", b"hello", "text/plain")})
+    admin.post("/api/cases/1/assign", json={"officer_id": 1})
+    admin.post("/api/cases/1/evidence", json={"type": "CCTV", "description": "Camera at the gate."})
+    url = app.state.database_url
+    archive = backup.create_backup(url, tmp_path / "backups")
+
+    # a fresh, empty installation gets everything back
+    if db.dialect_of(url) == "sqlite":
+        fresh_url = f"sqlite:///{tmp_path / 'fresh.db'}"
+    else:
+        reset_database(url)
+        fresh_url = url
+    app = create_app(database=fresh_url, secret="test", mongo_client=mongomock.MongoClient())
+    backup.restore_backup(archive, fresh_url)
+
+    from fastapi.testclient import TestClient
+    client = TestClient(app, headers={"X-Requested-With": "crms"})
+    assert client.post("/api/auth/login", json={"email": "admin@t.test", "password": "password123"}).status_code == 200
+    case = client.get("/api/cases/1").json()
+    assert case["case"]["officer_name"] == "Officer"
+    assert case["evidence"][0]["type"] == "CCTV"
+    attachment_id = case["attachments"][0]["attachment_id"]
+    assert client.get(f"/api/attachments/{attachment_id}").content == b"hello"
+
+    # restoring over existing data is refused
+    import pytest
+    with pytest.raises(RuntimeError):
+        backup.restore_backup(archive, fresh_url)
+
+
+def test_backup_keeps_only_the_newest(app, tmp_path, make_client):
+    import time
+    from app import backup
+
+    url = app.state.database_url
+    for _ in range(3):
+        backup.create_backup(url, tmp_path / "b", keep=2)
+        time.sleep(1.1)
+    assert len(list((tmp_path / "b").glob("crms-*.tar.gz"))) == 2
