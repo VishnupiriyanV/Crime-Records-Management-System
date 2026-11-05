@@ -10,7 +10,7 @@ from . import db, mongo
 from .auth import check_csrf
 from .lifecycle import RuleError
 from .main_config import ROOT, database_url, mongo_name, mongo_url, production, secret_key
-from .routes import account, admin, attachments, cases, complaints, criminals
+from .routes import account, admin, attachments, audit, cases, complaints, criminals, exports, search
 
 DIST = ROOT / "frontend" / "dist"
 
@@ -22,7 +22,11 @@ def create_app(database=None, secret=None, mongo_client=None):
     db.init_db(path)
     mongo.configure(mongo_url(), mongo_name(), client=mongo_client)
 
-    app = FastAPI(title="Crime Records Management System", dependencies=[Depends(check_csrf)])
+    # the interactive API pages are left off so the site only shows the app itself
+    app = FastAPI(
+        title="Crime Records Management System", dependencies=[Depends(check_csrf)],
+        docs_url=None, redoc_url=None, openapi_url=None,
+    )
 
     app.state.database_url = path
 
@@ -39,7 +43,7 @@ def create_app(database=None, secret=None, mongo_client=None):
         https_only=production(),  # behind HTTPS the cookie is never sent in the clear
     )
 
-    for module in (account, complaints, attachments, cases, criminals, admin):
+    for module in (account, complaints, attachments, cases, criminals, admin, search, exports, audit):
         app.include_router(module.router)
 
     @app.exception_handler(RuleError)

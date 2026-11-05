@@ -1,8 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { api } from './api.js';
 
 const Session = createContext(null);
+const POLL_MS = 20000;
 export const useSession = () => useContext(Session);
 
 export function SessionProvider({ children }) {
@@ -16,6 +17,22 @@ export function SessionProvider({ children }) {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // check for new alerts every so often while a signed-in tab is visible
+  const lastUnread = useRef(0);
+  useEffect(() => { lastUnread.current = state.unread; }, [state.unread]);
+  useEffect(() => {
+    if (!state.user) return undefined;
+    const timer = setInterval(async () => {
+      if (document.hidden) return;
+      const data = await api('/auth/me').catch(() => null);
+      if (!data || !data.user) return;
+      if (data.unread > lastUnread.current) setFlash({ text: 'You have a new alert.', type: 'ok', keep: false });
+      lastUnread.current = data.unread;
+      setState((s) => ({ ...s, unread: data.unread }));
+    }, POLL_MS);
+    return () => clearInterval(timer);
+  }, [state.user?.user_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // a message shown before a redirect (keep) survives one navigation, anything else goes at once
   useEffect(() => {

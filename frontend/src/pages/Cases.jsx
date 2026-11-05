@@ -1,13 +1,14 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api, withQuery } from '../api.js';
-import { Attachments, Crumbs, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Status, useAct, useLoad } from '../ui.jsx';
+import { Bars, Line } from '../charts.jsx';
+import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, SortTh, Status, Timeline, useAct, useLoad } from '../ui.jsx';
 import { useSession } from '../session.jsx';
 
 export function Dashboard() {
   const { data, error, loading, reload } = useLoad('/dashboard');
   if (loading) return <Loading />;
   if (error) return <Failed error={error} retry={reload} />;
-  const { counts, queue, mine_rows, unassigned } = data;
+  const { counts, queue, mine_rows, unassigned, by_status, monthly } = data;
 
   return (
     <>
@@ -17,6 +18,17 @@ export function Dashboard() {
         <div className="stat"><b>{counts.open}</b><span>Open cases</span></div>
         <div className="stat"><b>{counts.mine}</b><span>Assigned to you</span></div>
         <div className="stat"><b>{counts.closed}</b><span>Closed cases</span></div>
+      </div>
+
+      <div className="cols cols--even">
+        <section className="panel">
+          <h2>Cases by status</h2>
+          {by_status.length ? <Bars rows={by_status} label="status" value="total" title="Cases by status" /> : <Empty>No cases registered yet.</Empty>}
+        </section>
+        <section className="panel">
+          <h2>Complaints filed, last 12 months</h2>
+          <Line points={monthly} title="Complaints filed per month" />
+        </section>
       </div>
 
       <div className="cols cols--even">
@@ -62,13 +74,13 @@ export function Dashboard() {
 
 export function Cases() {
   const [params] = useSearchParams();
-  const query = { q: params.get('q') || '', status: params.get('status') || '', mine: params.get('mine') || '', page: params.get('page') || '' };
+  const query = { q: params.get('q') || '', status: params.get('status') || '', mine: params.get('mine') || '', page: params.get('page') || '', sort: params.get('sort') || '', dir: params.get('dir') || '' };
   const { data, error, loading, reload } = useLoad(withQuery('/cases', query));
   const filtered = query.q || query.status || query.mine;
 
   return (
     <>
-      <PageHead title="Cases" text="Every registered case, newest first." />
+      <PageHead title="Cases" text="Every registered case, newest first."><Download path="/export/cases.csv" params={params}>Export CSV</Download></PageHead>
       <Filters>
         {(p) => (
           <>
@@ -93,7 +105,7 @@ export function Cases() {
           ) : (
             <>
               <div className="table-wrap"><table className="data">
-                <thead><tr><th className="r">Case</th><th>Complaint</th><th>Station</th><th>Officer</th><th>Opened</th><th>Status</th></tr></thead>
+                <thead><tr><SortTh id="no" className="r">Case</SortTh><SortTh id="title">Complaint</SortTh><SortTh id="station">Station</SortTh><SortTh id="officer">Officer</SortTh><SortTh id="opened">Opened</SortTh><SortTh id="status">Status</SortTh></tr></thead>
                 <tbody>{data.items.map((c) => (
                   <tr key={c.case_id}>
                     <td className="num r">{c.case_id}</td>
@@ -120,7 +132,7 @@ export function Case() {
   if (loading) return <Loading />;
   if (error) return <Failed error={error} retry={error.status === 404 ? undefined : reload} />;
 
-  const { case: c, evidence, linked, available, reports, notes, history, attachments, officers, editable, next_states } = data;
+  const { case: c, evidence, linked, available, reports, notes, timeline, attachments, officers, editable, next_states } = data;
   const send = (path, body, ok, method = 'POST') => act(() => api(`/cases/${id}${path}`, { method, body }), ok);
   // reset the form once the write has gone through
   const submit = (path, ok, shape = (b) => b) => async (event) => {
@@ -133,7 +145,9 @@ export function Case() {
   return (
     <>
       <Crumbs trail={[['Cases', '/cases']]} here={`Case ${c.case_id}`} />
-      <PageHead title={c.title} text={`Opened ${c.date_opened} at ${c.station}`}><Status value={c.status} /></PageHead>
+      <PageHead title={c.title} text={`Opened ${c.date_opened} at ${c.station}`}>
+        <div className="head-actions"><Status value={c.status} /><a className="btn btn--small" href={`/api/export/cases/${c.case_id}.pdf`}>Download PDF</a></div>
+      </PageHead>
       {!editable && (
         <div className="flash">
           {c.status.startsWith('Closed') ? 'This case is closed and read-only.' : 'Only the assigned officer or an admin can change this case.'}
@@ -262,12 +276,8 @@ export function Case() {
           )}
 
           <section className="panel">
-            <h2>Status history</h2>
-            <ul className="trail">
-              {history.map((h, i) => (
-                <li key={i}><span>{h.new_status}{h.who && <span className="muted"> by {h.who}</span>}</span><span className="num muted">{h.changed_at.slice(0, 10)}</span></li>
-              ))}
-            </ul>
+            <h2>Timeline</h2>
+            <Timeline events={timeline} />
           </section>
         </div>
       </div>

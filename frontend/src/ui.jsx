@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from './api.js';
 import { useSession } from './session.jsx';
@@ -118,16 +118,111 @@ export function Field({ label, id, children, hint }) {
 
 const sizeLabel = (n) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 
+const kindOf = (type) => (type.startsWith('image/') ? 'image' : type === 'application/pdf' ? 'pdf' : type === 'text/plain' ? 'text' : '');
+
+function PreviewBody({ file, url }) {
+  const kind = kindOf(file.content_type);
+  const [text, setText] = useState('');
+  useEffect(() => {
+    if (kind === 'text') fetch(url, { credentials: 'same-origin' }).then((r) => r.text()).then(setText).catch(() => setText('Could not load this file.'));
+  }, [kind, url]);
+  if (kind === 'image') return <img src={url} alt={file.filename} className="preview-image" />;
+  if (kind === 'pdf') return <iframe src={url} title={file.filename} className="preview-frame" />;
+  return <pre className="preview-text">{text}</pre>;
+}
+
 export function Attachments({ items }) {
+  const dialog = useRef(null);
+  const [shown, setShown] = useState(null);
   if (!items.length) return <p className="muted">No files attached.</p>;
+
+  const open = (file) => { setShown(file); dialog.current?.showModal(); };
+  const close = () => { dialog.current?.close(); setShown(null); };
+  const url = (a) => `/api/attachments/${a.attachment_id}`;
+
   return (
-    <ul className="trail">
-      {items.map((a) => (
-        <li key={a.attachment_id}>
-          <a href={`/api/attachments/${a.attachment_id}`}>{a.filename}</a>
-          <span className="num muted">{sizeLabel(a.size)}</span>
+    <>
+      <ul className="trail">
+        {items.map((a) => (
+          <li key={a.attachment_id}>
+            <span>
+              {kindOf(a.content_type) ? <button className="link-btn" onClick={() => open(a)}>{a.filename}</button> : a.filename}
+              {' '}<a className="muted" href={url(a)}>Download</a>
+            </span>
+            <span className="num muted">{sizeLabel(a.size)}</span>
+          </li>
+        ))}
+      </ul>
+      <dialog ref={dialog} className="preview" onClose={() => setShown(null)} onClick={(e) => e.target === dialog.current && close()}>
+        {shown && (
+          <>
+            <div className="preview-head"><b>{shown.filename}</b><button className="link-btn" onClick={close}>Close</button></div>
+            <PreviewBody file={shown} url={`${url(shown)}?inline=1`} />
+          </>
+        )}
+      </dialog>
+    </>
+  );
+}
+
+// a column heading that sorts the list through the URL; the server does the sorting
+export function SortTh({ id, children, className }) {
+  const [params, setParams] = useSearchParams();
+  const active = params.get('sort') === id;
+  const dir = params.get('dir') === 'asc' ? 'asc' : 'desc';
+  const click = () => {
+    const next = new URLSearchParams(params);
+    next.set('sort', id);
+    next.set('dir', active && dir === 'asc' ? 'desc' : 'asc');
+    next.delete('page');
+    setParams(next);
+  };
+  return (
+    <th className={className} aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}>
+      <button className="sort-btn" onClick={click}>{children}<span aria-hidden="true">{active ? (dir === 'asc' ? ' \u2191' : ' \u2193') : ''}</span></button>
+    </th>
+  );
+}
+
+// a link to a server-built file (CSV or PDF) that keeps the list's current filters
+export function Download({ path, params, children }) {
+  const query = {};
+  for (const key of ['q', 'status', 'mine', 'wanted', 'sort', 'dir']) if (params?.get(key)) query[key] = params.get(key);
+  const href = `/api${path}${Object.keys(query).length ? `?${new URLSearchParams(query)}` : ''}`;
+  return <a className="btn btn--small" href={href}>{children}</a>;
+}
+
+const STAGES = ['Filed', 'Verified', 'Case opened', 'Resolved'];
+
+// where a complaint is on its way from filing to a closed case
+export function Progress({ complaint, kase }) {
+  let reached = 0;
+  if (complaint.status === 'Verified') reached = 1;
+  if (kase) reached = kase.status === 'Closed (Resolved)' || kase.status === 'Closed (Unresolved)' ? 3 : 2;
+  const rejected = complaint.status === 'Rejected';
+  const stages = rejected ? ['Filed', 'Rejected'] : kase?.status === 'Closed (Unresolved)' ? ['Filed', 'Verified', 'Case opened', 'Closed, unresolved'] : STAGES;
+  const last = rejected ? 1 : reached;
+  return (
+    <ol className="progress" aria-label="Complaint progress">
+      {stages.map((label, i) => (
+        <li key={label} className={i < last ? 'done' : i === last ? 'now' : ''} aria-current={i === last ? 'step' : undefined}>
+          <span className={`dot ${rejected && i === 1 ? 'dot--bad' : ''}`} />{label}
         </li>
       ))}
-    </ul>
+    </ol>
+  );
+}
+
+// the merged story of a case, oldest first
+export function Timeline({ events }) {
+  return (
+    <ol className="timeline">
+      {events.map((e, i) => (
+        <li key={i} className={`timeline-${e.kind}`}>
+          <span className="num muted">{e.at.slice(0, 16)}</span>
+          <span>{e.text}{e.who && <span className="muted"> by {e.who}</span>}</span>
+        </li>
+      ))}
+    </ol>
   );
 }

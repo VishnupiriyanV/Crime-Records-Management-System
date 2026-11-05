@@ -22,3 +22,10 @@ def as_dicts(rows):
 
 def as_dict(row):
     return dict(row) if row is not None else None
+
+
+def order_by(options, key, direction, default):
+    """ORDER BY text for a sort the user picked. Only keys in `options` ever reach the SQL."""
+    column = options.get(key) or options[default]
+    way = "ASC" if direction == "asc" else "DESC"
+    return f"{column} {way}, {options[default]} DESC"

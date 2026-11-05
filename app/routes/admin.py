@@ -4,7 +4,8 @@ from pydantic import BaseModel
 from ..auth import hash_password, login_required
 from ..db import get_db, many, one, run
 from ..forms import as_dict, as_dicts, need
-from ..lifecycle import RuleError
+from ..lifecycle import RuleError, log_status
+from ..stats import monthly_complaints
 from ..mongo import mdb
 
 router = APIRouter(prefix="/api")
@@ -67,7 +68,7 @@ def reports(start: str = "", end: str = "", criminal: str = "", user=login_requi
     return {
         "by_status": as_dicts(by_status), "by_station": as_dicts(by_station), "period": period,
         "criminals": as_dicts(many("SELECT criminal_id, name FROM criminal ORDER BY name")),
-        "history": history,
+        "history": history, "monthly": monthly_complaints(),
     }
 
 
@@ -127,6 +128,7 @@ def create_user(body: NewUser, user=login_required("admin")):
         get_db().rollback()
         raise
     get_db().commit()
+    log_status("user", user_id, None, f"Account created as {body.role}", user["user_id"])
     return {"user_id": user_id}
 
 
@@ -140,8 +142,10 @@ def change_role(user_id: int, body: RoleChange, user=login_required("admin")):
         raise RuleError("Create the account as an officer so a badge, rank and station are recorded.")
     if body.role in ("citizen", "admin"):
         _ensure_plain_row(body.role, user_id)
+    before = one("SELECT role FROM users WHERE user_id = ?", user_id)
     run("UPDATE users SET role = ? WHERE user_id = ?", body.role, user_id)
     get_db().commit()
+    log_status("user role", user_id, before["role"] if before else None, body.role, user["user_id"])
     return {"ok": True}
 
 
@@ -151,6 +155,9 @@ def toggle_active(user_id: int, user=login_required("admin")):
         raise RuleError("You cannot deactivate your own account.")
     run("UPDATE users SET active = 1 - active WHERE user_id = ?", user_id)
     get_db().commit()
+    now_active = one("SELECT active FROM users WHERE user_id = ?", user_id)
+    if now_active:
+        log_status("user", user_id, None, "Activated" if now_active["active"] else "Deactivated", user["user_id"])
     return {"ok": True}
 
 
@@ -162,4 +169,5 @@ def create_station(body: StationBody, user=login_required("admin")):
         raise RuleError("A station with that name already exists.")
     station_id = run("INSERT INTO police_station (name, jurisdiction) VALUES (?, ?)", name, area)
     get_db().commit()
+    log_status("station", station_id, None, f"Added {name}", user["user_id"])
     return {"station_id": station_id}

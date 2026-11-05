@@ -140,7 +140,7 @@ def test_officers_are_told_about_assignments(make_client):
 
 def test_backup_and_restore_round_trip(app, tmp_path, make_client):
     import mongomock
-    from conftest import reset_database
+    from tests.conftest import reset_database
 
     from app import backup, create_app, db
 

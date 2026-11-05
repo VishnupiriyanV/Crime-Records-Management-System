@@ -1,17 +1,20 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, withQuery } from '../api.js';
 import { useSession } from '../session.jsx';
-import { Crumbs, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Status, useAct, useLoad } from '../ui.jsx';
+import { Crumbs, Download, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, SortTh, Status, useAct, useLoad } from '../ui.jsx';
 
 export function Criminals() {
   const [params] = useSearchParams();
-  const query = { q: params.get('q') || '', wanted: params.get('wanted') || '', page: params.get('page') || '' };
+  const query = { q: params.get('q') || '', wanted: params.get('wanted') || '', page: params.get('page') || '', sort: params.get('sort') || '', dir: params.get('dir') || '' };
   const { data, error, loading, reload } = useLoad(withQuery('/criminals', query));
 
   return (
     <>
       <PageHead title="Criminal records" text="Search by name or history; open a record to see its cases.">
-        <Link className="btn btn--primary" to="/criminals/new">Add record</Link>
+        <div className="head-actions">
+          <Download path="/export/criminals.csv" params={params}>Export CSV</Download>
+          <Link className="btn btn--primary" to="/criminals/new">Add record</Link>
+        </div>
       </PageHead>
       <Filters>
         {(p) => (
@@ -31,7 +34,7 @@ export function Criminals() {
           ) : (
             <>
               <div className="table-wrap"><table className="data">
-                <thead><tr><th>Name</th><th className="r">Age</th><th>History</th><th className="r">Cases</th><th>Wanted</th></tr></thead>
+                <thead><tr><SortTh id="name">Name</SortTh><SortTh id="age" className="r">Age</SortTh><th>History</th><SortTh id="cases" className="r">Cases</SortTh><SortTh id="wanted">Wanted</SortTh></tr></thead>
                 <tbody>{data.items.map((c) => (
                   <tr key={c.criminal_id}>
                     <td><Link to={`/criminals/${c.criminal_id}`}>{c.name}</Link></td>

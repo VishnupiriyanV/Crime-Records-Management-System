@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from ..auth import is_staff, login_required
 from ..db import get_db, many, one, run
-from ..forms import as_dict, as_dicts, need, page_number
+from ..forms import as_dict, as_dicts, need, order_by, page_number
 from ..lifecycle import RuleError, is_closed, log_status, register_case, reject_complaint, verify_complaint
 from ..mongo import clean, mdb, now
 from .attachments import list_for
@@ -11,6 +11,11 @@ from .attachments import list_for
 router = APIRouter(prefix="/api")
 
 PAGE_SIZE = 20
+
+SORTS = {
+    "no": "c.complaint_id", "title": "c.title", "by": "u.name", "location": "c.location",
+    "filed": "c.date_filed", "status": "c.status", "case": "cs.status",
+}
 
 
 class NewComplaint(BaseModel):
@@ -51,10 +56,8 @@ def _load(complaint_id, user):
     return c
 
 
-@router.get("/complaints")
-def index(status: str = "", q: str = "", page: str = "1", user=login_required()):
-    q = q.strip()
-    page = page_number(page)
+def complaint_filter(user, status, q):
+    """WHERE clause and arguments shared by the list and the CSV export."""
     where, args = [], []
     if user["role"] == "citizen":
         where.append("c.citizen_id = ?")
@@ -62,18 +65,30 @@ def index(status: str = "", q: str = "", page: str = "1", user=login_required())
     if status in ("Filed", "Verified", "Rejected"):
         where.append("c.status = ?")
         args.append(status)
-    if q:
+    if q.strip():
         where.append("(c.title LIKE ? OR c.location LIKE ?)")
-        args += [f"%{q}%", f"%{q}%"]
-    clause = ("WHERE " + " AND ".join(where)) if where else ""
+        args += [f"%{q.strip()}%", f"%{q.strip()}%"]
+    return ("WHERE " + " AND ".join(where)) if where else "", args
 
+
+LIST_SELECT = (
+    "SELECT c.*, u.name AS citizen_name, cs.case_id, cs.status AS case_status"
+    " FROM complaint c JOIN citizen ct ON ct.citizen_id = c.citizen_id"
+    " JOIN users u ON u.user_id = ct.user_id"
+    " LEFT JOIN crime_case cs ON cs.complaint_id = c.complaint_id"
+)
+
+
+@router.get("/complaints")
+def index(
+    status: str = "", q: str = "", page: str = "1", sort: str = "no", dir: str = "desc",
+    user=login_required(),
+):
+    page = page_number(page)
+    clause, args = complaint_filter(user, status, q)
     total = one(f"SELECT COUNT(*) AS n FROM complaint c {clause}", *args)["n"]
     rows = many(
-        f"SELECT c.*, u.name AS citizen_name, cs.case_id, cs.status AS case_status"
-        f" FROM complaint c JOIN citizen ct ON ct.citizen_id = c.citizen_id"
-        f" JOIN users u ON u.user_id = ct.user_id"
-        f' LEFT JOIN crime_case cs ON cs.complaint_id = c.complaint_id {clause}'
-        f" ORDER BY c.complaint_id DESC LIMIT ? OFFSET ?",
+        f"{LIST_SELECT} {clause} ORDER BY {order_by(SORTS, sort, dir, 'no')} LIMIT ? OFFSET ?",
         *args, PAGE_SIZE, (page - 1) * PAGE_SIZE,
     )
     return {

@@ -27,7 +27,10 @@ export function Profile() {
           </>
         )}
         <Field label="New password" id="password" hint="Leave blank to keep the current one.">
-          <input id="password" name="password" type="password" autoComplete="new-password" />
+          <input id="password" name="password" type="password" autoComplete="new-password" minLength={8} />
+        </Field>
+        <Field label="Current password" id="current_password" hint="Only needed when you set a new password.">
+          <input id="current_password" name="current_password" type="password" autoComplete="current-password" />
         </Field>
         <button className="btn btn--primary" type="submit">Save changes</button>
       </form>

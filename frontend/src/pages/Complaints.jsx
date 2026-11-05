@@ -1,12 +1,12 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, upload, withQuery } from '../api.js';
 import { useSession } from '../session.jsx';
-import { Attachments, Crumbs, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Status, useAct, useLoad } from '../ui.jsx';
+import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Progress, SortTh, Status, useAct, useLoad } from '../ui.jsx';
 
 export function Complaints() {
   const { user } = useSession();
   const [params] = useSearchParams();
-  const query = { q: params.get('q') || '', status: params.get('status') || '', page: params.get('page') || '' };
+  const query = { q: params.get('q') || '', status: params.get('status') || '', page: params.get('page') || '', sort: params.get('sort') || '', dir: params.get('dir') || '' };
   const { data, error, loading, reload } = useLoad(withQuery('/complaints', query));
   const citizen = user.role === 'citizen';
 
@@ -16,7 +16,10 @@ export function Complaints() {
         title={citizen ? 'My complaints' : 'Complaints'}
         text={citizen ? 'Everything you have filed, and where it stands.' : 'Every complaint filed at any station.'}
       >
-        {citizen && <Link className="btn btn--primary" to="/complaints/new">File a complaint</Link>}
+        <div className="head-actions">
+          <Download path="/export/complaints.csv" params={params}>Export CSV</Download>
+          {citizen && <Link className="btn btn--primary" to="/complaints/new">File a complaint</Link>}
+        </div>
       </PageHead>
 
       <Filters>
@@ -48,8 +51,8 @@ export function Complaints() {
             <>
               <div className="table-wrap"><table className="data">
                 <thead><tr>
-                  <th className="r">No.</th><th>Title</th>{!citizen && <th>Filed by</th>}
-                  <th>Location</th><th>Filed on</th><th>Status</th><th>Case</th>
+                  <SortTh id="no" className="r">No.</SortTh><SortTh id="title">Title</SortTh>{!citizen && <SortTh id="by">Filed by</SortTh>}
+                  <SortTh id="location">Location</SortTh><SortTh id="filed">Filed on</SortTh><SortTh id="status">Status</SortTh><SortTh id="case">Case</SortTh>
                 </tr></thead>
                 <tbody>
                   {data.items.map((c) => (
@@ -155,6 +158,7 @@ export function Complaint() {
     <>
       <Crumbs trail={[['Complaints', '/complaints']]} here={`No. ${c.complaint_id}`} />
       <PageHead title={c.title} text={`Filed by ${c.citizen_name} on ${c.date_filed}`}><Status value={c.status} /></PageHead>
+      <Progress complaint={c} kase={kase} />
 
       <div className="cols">
         <div>

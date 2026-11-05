@@ -21,6 +21,11 @@ ALLOWED = {
 }
 
 
+PREVIEWABLE = {
+    "image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf", "text/plain",
+}
+
+
 def _owned_complaint(complaint_id, user):
     """The complaint, if this user may see it (404 otherwise, so ids do not leak)."""
     c = one(
@@ -67,16 +72,19 @@ async def upload(complaint_id: int, file: UploadFile, user=login_required("citiz
 
 
 @router.get("/attachments/{attachment_id}")
-def download(attachment_id: str, user=login_required()):
+def download(attachment_id: str, inline: str = "", user=login_required()):
     doc = mdb().attachments.find_one({"attachment_id": attachment_id})
     stored = mdb().attachment_files.find_one({"attachment_id": attachment_id})
     if doc is None or stored is None:
         raise HTTPException(404, "That file does not exist.")
     _owned_complaint(doc["complaint_id"], user)
-    return Response(
-        bytes(stored["data"]), media_type=doc["content_type"],
-        headers={
-            "Content-Disposition": f'attachment; filename="{doc["filename"]}"',
-            "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox",
-        },
-    )
+    headers = {
+        "Content-Disposition": f'attachment; filename="{doc["filename"]}"',
+        "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox",
+    }
+    # the preview shows images, PDFs and text in the page; everything else still downloads
+    if inline == "1" and doc["content_type"] in PREVIEWABLE:
+        headers["Content-Disposition"] = f'inline; filename="{doc["filename"]}"'
+        if doc["content_type"] == "application/pdf":
+            headers.pop("Content-Security-Policy")  # a sandboxed page cannot open the PDF viewer
+    return Response(bytes(stored["data"]), media_type=doc["content_type"], headers=headers)

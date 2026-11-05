@@ -1,11 +1,13 @@
 # Crime Records Management System
 
-A web app for a DBMS lab. Citizens file and track complaints; police officers and admins verify them, open cases, and manage criminal records, evidence and reports. The product requirements are in `docs/prd/index.html`.
+A web app for a DBMS lab. Citizens file and track complaints; police officers and admins verify them, open cases, and manage criminal records, evidence and reports.
 
 - **Backend:** FastAPI, a JSON API under `/api`.
 - **Frontend:** React (Vite), in `frontend/`.
 - **Relational database:** SQLite (default), PostgreSQL or MySQL, chosen by one setting. It holds users, complaints, cases, criminals and reports.
 - **MongoDB:** holds the document-shaped data: evidence, citizen notes, notifications, uploaded files and the status audit trail. Rows and documents are linked by id.
+
+Beyond the core flow it has charts on the dashboard and reports, a timeline on every case, one search box across complaints, cases and records, CSV exports of the lists and a PDF of each case file, in-page preview of uploaded images, PDFs and text, an admin audit log, live alerts, sortable lists, keyboard shortcuts (press `?`), and a dark mode.
 
 ## Run it
 
@@ -94,6 +96,12 @@ CRMS_TEST_DB_URL=mysql://crms:crms@localhost:3306/crms .venv/bin/python -m pytes
 
 That wipes every table in the database it points at, so use the development containers.
 
+There are also browser tests that click through the app in Chromium. Build the frontend first, and install Playwright (`pip install playwright`); they use the system Chromium if there is one.
+
+```
+.venv/bin/python -m pytest tests/e2e
+```
+
 ## Layout
 
 - `app/routes/` one router per area: account, complaints, cases, criminals, admin
@@ -103,7 +111,6 @@ That wipes every table in the database it points at, so use the development cont
 - `app/mongo.py` MongoDB collections and helpers
 - `app/backup.py` backup and restore
 - `frontend/src/` the React app
-- `docs/prd/` the product requirements page
 
 ## Known limits
 

@@ -3,16 +3,23 @@ from pydantic import BaseModel
 
 from ..auth import login_required
 from ..db import get_db, many, one, run
-from ..forms import as_dict, as_dicts, need, page_number
+from ..forms import as_dict, as_dicts, need, order_by, page_number
 from ..lifecycle import (
     CASE_STATUSES, CASE_TRANSITIONS, RuleError, assign_officer, change_case_status, is_closed,
 )
 from ..mongo import clean, mdb, now
+from ..stats import monthly_complaints
+from ..timeline import case_timeline
 from .attachments import list_for
 
 router = APIRouter(prefix="/api")
 
 PAGE_SIZE = 20
+
+SORTS = {
+    "no": "cs.case_id", "title": "c.title", "station": "ps.name", "officer": "ou.name",
+    "opened": "cs.date_opened", "status": "cs.status",
+}
 
 CASE_SELECT = (
     'SELECT cs.*, c.title, c.location, c.description, c.incident_date, c.complaint_id,'
@@ -100,16 +107,13 @@ def dashboard(user=login_required("officer", "admin")):
     return {
         "counts": counts, "queue": as_dicts(queue), "unassigned": as_dicts(unassigned),
         "mine_rows": as_dicts(mine_rows),
+        "by_status": as_dicts(many("SELECT * FROM v_cases_by_status ORDER BY total DESC")),
+        "monthly": monthly_complaints(),
     }
 
 
-@router.get("/cases")
-def index(
-    status: str = "", q: str = "", mine: str = "", page: str = "1",
-    user=login_required("officer", "admin"),
-):
-    q = q.strip()
-    page = page_number(page)
+def case_filter(status, q, mine, user):
+    """WHERE clause and arguments shared by the list and the CSV export."""
     where, args = [], []
     if status in CASE_STATUSES:
         where.append("cs.status = ?")
@@ -117,18 +121,26 @@ def index(
     if mine == "1":
         where.append("cs.officer_id = ?")
         args.append(my_officer_id(user))
-    if q:
+    if q.strip():
         where.append("(c.title LIKE ? OR cu.name LIKE ? OR c.location LIKE ?)")
-        args += [f"%{q}%"] * 3
-    clause = ("WHERE " + " AND ".join(where)) if where else ""
+        args += [f"%{q.strip()}%"] * 3
+    return ("WHERE " + " AND ".join(where)) if where else "", args
 
+
+@router.get("/cases")
+def index(
+    status: str = "", q: str = "", mine: str = "", page: str = "1", sort: str = "no", dir: str = "desc",
+    user=login_required("officer", "admin"),
+):
+    page = page_number(page)
+    clause, args = case_filter(status, q, mine, user)
     total = one(
         'SELECT COUNT(*) AS n FROM crime_case cs JOIN complaint c ON c.complaint_id = cs.complaint_id'
         " JOIN citizen ct ON ct.citizen_id = c.citizen_id JOIN users cu ON cu.user_id = ct.user_id " + clause,
         *args,
     )["n"]
     rows = many(
-        CASE_SELECT + f" {clause} ORDER BY cs.case_id DESC LIMIT ? OFFSET ?",
+        CASE_SELECT + f" {clause} ORDER BY {order_by(SORTS, sort, dir, 'no')} LIMIT ? OFFSET ?",
         *args, PAGE_SIZE, (page - 1) * PAGE_SIZE,
     )
     return {
@@ -158,6 +170,7 @@ def detail(case_id: int, user=login_required("officer", "admin")):
     )
     notes = clean(mdb().notes.find({"complaint_id": case["complaint_id"]}).sort("_id", 1))
     history = clean(mdb().status_log.find({"entity": "case", "entity_id": case_id}).sort("_id", 1))
+    timeline = case_timeline(case, reports)
     attachments = list_for(case["complaint_id"])
     officers = many(
         "SELECT o.officer_id, u.name, o.officer_rank FROM officer o JOIN users u ON u.user_id = o.user_id"
@@ -166,7 +179,7 @@ def detail(case_id: int, user=login_required("officer", "admin")):
     return {
         "case": dict(case), "evidence": evidence, "linked": as_dicts(linked),
         "available": as_dicts(available), "reports": as_dicts(reports), "notes": notes,
-        "history": history, "attachments": attachments, "officers": as_dicts(officers),
+        "history": history, "timeline": timeline, "attachments": attachments, "officers": as_dicts(officers),
         "editable": can_edit(case, user), "next_states": CASE_TRANSITIONS[case["status"]],
     }
 
@@ -192,7 +205,7 @@ def add_evidence(case_id: int, body: Evidence, user=login_required("officer", "a
     next_no = (last["evidence_no"] if last else 0) + 1
     mdb().evidence.insert_one({
         "case_id": case_id, "evidence_no": next_no, "type": kind,
-        "description": description, "date_collected": now()[:10],
+        "description": description, "date_collected": now()[:10], "created_at": now(),
     })
     return {"evidence_no": next_no}
 

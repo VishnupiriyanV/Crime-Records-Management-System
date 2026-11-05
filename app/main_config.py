@@ -32,3 +32,4 @@ def mongo_url():
 
 def mongo_name():
     return os.environ.get("MONGO_DB", "crms")
+

@@ -3,12 +3,19 @@ from pydantic import BaseModel
 
 from ..auth import login_required
 from ..db import get_db, many, one, run
-from ..forms import as_dict, as_dicts, need, page_number
+from ..forms import as_dict, as_dicts, need, order_by, page_number
 from ..lifecycle import RuleError
 
 router = APIRouter(prefix="/api")
 
 PAGE_SIZE = 20
+
+SORTS = {"name": "cr.name", "age": "cr.age", "cases": "cases", "wanted": "cr.wanted"}
+
+LIST_SELECT = (
+    "SELECT cr.*, (SELECT COUNT(*) FROM case_criminal cc WHERE cc.criminal_id = cr.criminal_id) AS cases"
+    " FROM criminal cr"
+)
 
 
 class CriminalBody(BaseModel):
@@ -26,21 +33,27 @@ def _age(value):
     return int(value)
 
 
-@router.get("/criminals")
-def index(q: str = "", wanted: str = "", page: str = "1", user=login_required("officer", "admin")):
-    q = q.strip()
-    page = page_number(page)
+def criminal_filter(q, wanted):
+    """WHERE clause and arguments shared by the list and the CSV export."""
     where, args = [], []
-    if q:
-        where.append("(name LIKE ? OR crime_history LIKE ?)")
-        args += [f"%{q}%", f"%{q}%"]
+    if q.strip():
+        where.append("(cr.name LIKE ? OR cr.crime_history LIKE ?)")
+        args += [f"%{q.strip()}%", f"%{q.strip()}%"]
     if wanted == "1":
-        where.append("wanted = 1")
-    clause = ("WHERE " + " AND ".join(where)) if where else ""
-    total = one(f"SELECT COUNT(*) AS n FROM criminal {clause}", *args)["n"]
+        where.append("cr.wanted = 1")
+    return ("WHERE " + " AND ".join(where)) if where else "", args
+
+
+@router.get("/criminals")
+def index(
+    q: str = "", wanted: str = "", page: str = "1", sort: str = "name", dir: str = "asc",
+    user=login_required("officer", "admin"),
+):
+    page = page_number(page)
+    clause, args = criminal_filter(q, wanted)
+    total = one(f"SELECT COUNT(*) AS n FROM criminal cr {clause}", *args)["n"]
     rows = many(
-        f"SELECT cr.*, (SELECT COUNT(*) FROM case_criminal cc WHERE cc.criminal_id = cr.criminal_id) AS cases"
-        f" FROM criminal cr {clause} ORDER BY name LIMIT ? OFFSET ?",
+        f"{LIST_SELECT} {clause} ORDER BY {order_by(SORTS, sort, dir, 'name')} LIMIT ? OFFSET ?",
         *args, PAGE_SIZE, (page - 1) * PAGE_SIZE,
     )
     return {

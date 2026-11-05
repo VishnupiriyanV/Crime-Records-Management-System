@@ -26,6 +26,9 @@ class Profile(BaseModel):
     address: str = ""
     phone: str = ""
     password: str = ""
+    current_password: str = ""
+
+
 
 
 def session_payload(user):
@@ -97,8 +100,12 @@ def get_profile(user=login_required()):
 def update_profile(body: Profile, request: Request, user=login_required()):
     uid = user["user_id"]
     name = need(body.name, "Name", 100)
-    if body.password and len(body.password) < 8:
-        raise RuleError("Use at least 8 characters for the password.")
+    if body.password:
+        if len(body.password) < 8:
+            raise RuleError("Use at least 8 characters for the password.")
+        stored = one("SELECT password FROM users WHERE user_id = ?", uid)["password"]
+        if not verify_password(body.current_password, stored):
+            raise RuleError("Enter your current password to set a new one.")
     run("UPDATE users SET name = ? WHERE user_id = ?", name, uid)
     if user["role"] == "citizen":
         run(
@@ -120,3 +127,4 @@ def notifications(user=login_required()):
     items = clean(mdb().notifications.find({"user_id": uid}).sort("_id", -1).limit(100))
     mdb().notifications.update_many({"user_id": uid, "seen": False}, {"$set": {"seen": True}})
     return {"items": items}
+

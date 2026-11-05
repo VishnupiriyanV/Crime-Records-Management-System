@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, withQuery } from '../api.js';
+import { Bars, Line } from '../charts.jsx';
 import { useSession } from '../session.jsx';
-import { Failed, Field, formData, Loading, PageHead, Status, useAct, useLoad } from '../ui.jsx';
+import { Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Status, useAct, useLoad } from '../ui.jsx';
 
 export function Reports() {
   const [params, setParams] = useSearchParams();
@@ -11,7 +12,7 @@ export function Reports() {
   if (loading) return <Loading />;
   if (error) return <Failed error={error} retry={reload} />;
 
-  const { by_status, by_station, period, criminals, history } = data;
+  const { by_status, by_station, period, criminals, history, monthly } = data;
   // the two forms share one query string, so each keeps the other's values
   const apply = (extra) => (event) => {
     event.preventDefault();
@@ -23,18 +24,21 @@ export function Reports() {
   return (
     <>
       <PageHead title="Reports" text="Case counts by status, station and period, and the history of any one person." />
+      <section className="panel">
+        <h2>Complaints filed, last 12 months</h2>
+        <Line points={monthly} title="Complaints filed per month" />
+      </section>
+
       <div className="cols cols--even">
         <section className="panel">
           <h2>Cases by status</h2>
           {by_status.length ? (
-            <table className="data"><thead><tr><th>Status</th><th className="r">Cases</th></tr></thead>
-              <tbody>{by_status.map((r) => <tr key={r.status}><td><Status value={r.status} /></td><td className="num r">{r.total}</td></tr>)}</tbody></table>
+            <Bars rows={by_status} label="status" value="total" title="Cases by status" />
           ) : <div className="empty"><p>No cases registered yet.</p></div>}
         </section>
         <section className="panel">
           <h2>Cases by station</h2>
-          <table className="data"><thead><tr><th>Station</th><th className="r">Cases</th></tr></thead>
-            <tbody>{by_station.map((r) => <tr key={r.station}><td>{r.station}</td><td className="num r">{r.total}</td></tr>)}</tbody></table>
+          <Bars rows={by_station} label="station" value="total" title="Cases by station" />
         </section>
       </div>
 
@@ -185,6 +189,49 @@ export function Users() {
           <button className="btn btn--primary" type="submit" style={{ marginTop: 'var(--space-md)' }}>Create account</button>
         </form>
       </section>
+    </>
+  );
+}
+
+export function Audit() {
+  const [params] = useSearchParams();
+  const query = { entity: params.get('entity') || '', q: params.get('q') || '', page: params.get('page') || '' };
+  const { data, error, loading, reload } = useLoad(withQuery('/audit', query));
+  return (
+    <>
+      <PageHead title="Audit log" text="Who changed what, newest first." />
+      <Filters>
+        {(p) => (
+          <>
+            <Field label="Search" id="q"><input id="q" name="q" defaultValue={p.get('q') || ''} placeholder="Person or new value" /></Field>
+            <Field label="Kind" id="entity">
+              <select id="entity" name="entity" defaultValue={p.get('entity') || ''}>
+                <option value="">All</option>
+                {(data?.entities || []).map((e) => <option key={e}>{e}</option>)}
+              </select>
+            </Field>
+            <button className="btn" type="submit">Filter</button>
+          </>
+        )}
+      </Filters>
+      {loading ? <Loading /> : error ? <Failed error={error} retry={reload} /> : (
+        <div className="panel">
+          {data.items.length === 0 ? <Empty>Nothing recorded for that filter.</Empty> : (
+            <>
+              <div className="table-wrap"><table className="data">
+                <thead><tr><th>When</th><th>Kind</th><th className="r">Id</th><th>Change</th><th>By</th></tr></thead>
+                <tbody>{data.items.map((r, i) => (
+                  <tr key={i}>
+                    <td className="num">{r.changed_at}</td><td>{r.entity}</td><td className="num r">{r.entity_id}</td>
+                    <td>{r.old_status ? `${r.old_status} \u2192 ${r.new_status}` : r.new_status}</td><td>{r.who}</td>
+                  </tr>
+                ))}</tbody>
+              </table></div>
+              <Pager page={data.page} pages={data.pages} total={data.total} />
+            </>
+          )}
+        </div>
+      )}
     </>
   );
 }

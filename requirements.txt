@@ -7,3 +7,4 @@ pymongo[srv]>=4.6
 psycopg[binary]>=3.1
 pymysql>=1.1
 cryptography>=42
+fpdf2>=2.8
