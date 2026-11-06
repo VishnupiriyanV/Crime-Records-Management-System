@@ -19,4 +19,4 @@ RUN useradd --system crms && mkdir data && chown crms data
 USER crms
 
 # the proxy flags make the sign-in lockout see the visitor's address instead of the host's proxy
-CMD ["sh", "-c", "python -m app.bootstrap && uvicorn run:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
+CMD ["sh", "-c", "python -m app.bootstrap && { python -m app.bootstrap --sample & exec uvicorn run:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'; }"]
