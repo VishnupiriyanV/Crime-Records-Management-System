@@ -99,6 +99,7 @@ export function NewComplaint() {
   const { data } = useLoad('/meta');
   const [pin, setPin] = useState(null);
   const pick = useCallback((at) => setPin(at), []);
+  const [sending, setSending] = useState(false);
 
   const useMyLocation = () => {
     if (!navigator.geolocation) return notice('This browser cannot share a location.', 'error');
@@ -111,8 +112,16 @@ export function NewComplaint() {
   const submit = (event) => {
     const { file, ...body } = formData(event);
     if (pin) { body.latitude = pin.lat; body.longitude = pin.lng; }
+    if (sending) return;
+    setSending(true);
     return act(async () => {
-      const { complaint_id } = await api('/complaints', { method: 'POST', body });
+      let complaint_id;
+      try {
+        ({ complaint_id } = await api('/complaints', { method: 'POST', body }));
+      } catch (err) {
+        setSending(false);
+        throw err;
+      }
       let message = 'Complaint filed. You will be notified when it is reviewed.';
       if (file && file.size) {
         // the complaint exists by now, so a rejected file should not lose it
@@ -149,7 +158,7 @@ export function NewComplaint() {
           <input id="file" name="file" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt" />
         </Field>
         <div className="row" style={{ marginTop: 'var(--space-md)' }}>
-          <button className="btn btn--primary" type="submit">Submit complaint</button>
+          <button className="btn btn--primary" type="submit" disabled={sending}>{sending ? 'Submitting...' : 'Submit complaint'}</button>
           <Link className="btn" to="/complaints">Cancel</Link>
         </div>
       </form>

@@ -283,3 +283,17 @@ def test_bootstrap_creates_first_admin_once(tmp_path, monkeypatch):
     finally:
         db.release(token)
     assert [(r["email"], r["role"]) for r in rows] == [("boss@example.com", "admin")]
+
+
+def test_double_submit_files_one_complaint(make_client):
+    asha = make_client("asha@t.test")
+    form = {
+        "title": "Bag stolen", "description": "Taken from the bench.", "location": "Park gate",
+        "incident_date": "2026-10-02", "category": "Theft",
+    }
+    first = asha.post("/api/complaints", json=form).json()["complaint_id"]
+    again = asha.post("/api/complaints", json=form).json()["complaint_id"]
+    assert first == again
+    assert asha.get("/api/complaints").json()["total"] == 1
+    form["description"] = "Taken from the bench, near the fountain."
+    assert asha.post("/api/complaints", json=form).json()["complaint_id"] != first

@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -147,10 +149,20 @@ def create(body: NewComplaint, user=login_required("citizen")):
         raise RuleError("Give both a latitude and a longitude, or neither.")
     lat = _coordinate(body.latitude, -90, 90, "Latitude")
     lng = _coordinate(body.longitude, -180, 180, "Longitude")
+    citizen_id = _citizen_id(user)
+    # a double click sends the same form twice; answer with the complaint that is already there
+    last = one(
+        "SELECT complaint_id, title, description, location, incident_date, date_filed FROM complaint"
+        " WHERE citizen_id = ? ORDER BY complaint_id DESC LIMIT 1", citizen_id,
+    )
+    if last and str(last["date_filed"]) == date.today().isoformat() and (
+        last["title"], last["description"], last["location"], str(last["incident_date"]),
+    ) == values:
+        return {"complaint_id": last["complaint_id"]}
     complaint_id = run(
         "INSERT INTO complaint (citizen_id, title, description, location, incident_date, category, latitude, longitude)"
         " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        _citizen_id(user), *values, body.category, lat, lng,
+        citizen_id, *values, body.category, lat, lng,
     )
     get_db().commit()
     log_status("complaint", complaint_id, None, "Filed", user["user_id"])
