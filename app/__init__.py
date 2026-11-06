@@ -43,6 +43,10 @@ def create_app(database=None, secret=None, mongo_client=None):
         https_only=production(),  # behind HTTPS the cookie is never sent in the clear
     )
 
+    @app.get("/api/health", include_in_schema=False)
+    def health():
+        return {"ok": True}
+
     for module in (account, complaints, attachments, cases, criminals, admin, search, exports, audit, hotspots, stations):
         app.include_router(module.router)
 

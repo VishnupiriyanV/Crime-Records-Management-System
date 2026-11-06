@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: crms
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: CRMS_SECRET
+        generateValue: true
+      - key: CRMS_DB_URL
+        sync: false
+      - key: MONGO_URL
+        sync: false
+      - key: CRMS_ADMIN_EMAIL
+        sync: false
+      - key: CRMS_ADMIN_PASSWORD
+        sync: false

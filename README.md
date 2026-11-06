@@ -82,13 +82,23 @@ Then sign in, and add police stations on the Users page before creating officers
 
 ### Hosting for free
 
-The app needs a place to run, a relational database and MongoDB. One combination that costs nothing:
+The app needs a place to run, a relational database and MongoDB. A combination that costs nothing and needs no shell access:
 
-- **Run it:** a free web service that builds from the `Dockerfile` (Render, Koyeb or Hugging Face Spaces).
-- **MongoDB:** MongoDB Atlas, free shared cluster.
-- **PostgreSQL:** Neon or Supabase, free tier.
+1. **MongoDB:** create a free cluster on MongoDB Atlas (M0). Add a database user, allow access from anywhere under Network Access, and copy the `mongodb+srv://` address.
+2. **PostgreSQL:** create a free project on Neon and copy the connection string. Keep the `?sslmode=require` at the end.
+3. **The app:** push this repository to GitHub, then on Render choose New, Blueprint, and pick the repository. `render.yaml` sets up a free Docker web service. Render asks for these values:
 
-Free web services sleep when idle and take about a minute to wake, and their disks are wiped on restart, which is why files and records live in the databases rather than on disk. Free tiers and limits change, so check each provider's current terms.
+| Setting | Value |
+| --- | --- |
+| `CRMS_DB_URL` | the Neon connection string |
+| `MONGO_URL` | the Atlas address |
+| `CRMS_ADMIN_EMAIL`, `CRMS_ADMIN_PASSWORD` | the first admin (password of 12 or more characters) |
+
+`CRMS_SECRET` is generated for you. On the first start the app creates the tables and the admin. Sign in, then add police stations on the Users page.
+
+For a demo, set `CRMS_SAMPLE_DATA=300` before the first start instead of the admin values. That loads the demo accounts (`admin@crms.test` and the others, password `password123`) and 300 sample complaints. Change those passwords before sharing the link widely.
+
+Free web services sleep after about 15 minutes idle and take about a minute to wake, so open the site before presenting. Their disks are wiped on restart, which is why files and records live in the databases. Free tiers change, so check each provider's current terms. Koyeb and Hugging Face Spaces also build from the `Dockerfile` if you prefer them.
 
 ## Tests
 

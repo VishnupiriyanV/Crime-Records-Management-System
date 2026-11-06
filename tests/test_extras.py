@@ -266,3 +266,20 @@ def test_sample_data_generator(app, make_client):
         if case["status"] in ("Chargesheet Filed", "Closed (Resolved)"):
             assert detail["chargesheet"] and detail["arrests"]
         assert all(e["at"] <= "9999" for e in detail["timeline"])
+
+
+def test_bootstrap_creates_first_admin_once(tmp_path, monkeypatch):
+    from app import bootstrap, db
+
+    url = f"sqlite:///{tmp_path / 'boot.db'}"
+    monkeypatch.setenv("CRMS_DB_URL", url)
+    monkeypatch.setenv("CRMS_ADMIN_EMAIL", "boss@example.com")
+    monkeypatch.setenv("CRMS_ADMIN_PASSWORD", "a-long-password-1")
+    bootstrap.main()
+    bootstrap.main()
+    token = db.use(db.connect(url))
+    try:
+        rows = db.many("SELECT email, role FROM users")
+    finally:
+        db.release(token)
+    assert [(r["email"], r["role"]) for r in rows] == [("boss@example.com", "admin")]
