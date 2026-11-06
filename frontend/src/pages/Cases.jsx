@@ -169,6 +169,17 @@ export function Case() {
     const done = await act(() => upload(`/cases/${id}/evidence/${no}/files`, file), 'File added.');
     if (done) form.reset();
   };
+  // the item is saved first, then the file is added to it; a rejected file should not lose the item
+  const recordEvidence = async (event) => {
+    const { file, ...body } = formData(event);
+    const form = event.target;
+    const made = await act(() => api(`/cases/${id}/evidence`, { method: 'POST', body }), 'Evidence recorded.');
+    if (!made) return;
+    if (file && file.size) {
+      await act(() => upload(`/cases/${id}/evidence/${made.evidence_no}/files`, file), 'File added.');
+    }
+    form.reset();
+  };
   // a charge sheet is filed on its own form, so the plain status list leaves it out
   const manualStates = next_states.filter((x) => x !== 'Chargesheet Filed');
   const chargeable = linked.filter((p) => p.role === 'suspect' || p.role === 'accused');
@@ -252,9 +263,10 @@ export function Case() {
             {editable && (
               <details style={{ marginTop: 'var(--space-md)' }}>
                 <summary>Record evidence</summary>
-                <form onSubmit={submit('/evidence', 'Evidence recorded.')}>
+                <form onSubmit={recordEvidence}>
                   <Field label="Type" id="type"><input id="type" name="type" placeholder="Photograph, CCTV, weapon" required /></Field>
                   <Field label="Description" id="ev-desc"><textarea id="ev-desc" name="description" required /></Field>
+                  <Field label="File (optional)" id="ev-file"><input id="ev-file" name="file" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt" /></Field>
                   <button className="btn" type="submit">Save evidence</button>
                 </form>
               </details>
