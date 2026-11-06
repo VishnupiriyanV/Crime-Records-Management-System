@@ -25,6 +25,7 @@ def reset_database(url):
         conn.execute("SET FOREIGN_KEY_CHECKS = 1")
     conn.commit()
     conn.close()
+    db.drain()  # kept connections may still know the dropped tables
 
 
 @pytest.fixture

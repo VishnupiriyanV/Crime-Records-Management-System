@@ -4,6 +4,8 @@ Queries are written once with ? placeholders; adapt() rewrites them for the driv
 """
 import re
 import sqlite3
+import threading
+import time
 from contextvars import ContextVar
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -19,7 +21,13 @@ SERIAL_KEYS = {
     "criminal": "criminal_id", "report": "report_id",
 }
 
-_conn: ContextVar["Conn"] = ContextVar("conn")
+_conn: ContextVar = ContextVar("conn")
+
+# Opening a connection to a hosted PostgreSQL or MySQL takes a second or more, so finished ones are kept for the next request.
+POOL_SIZE = 4
+STALE_AFTER = 45  # seconds; hosts close quiet connections, so older ones are not trusted
+_spare = {}
+_spare_lock = threading.Lock()
 
 
 def dialect_of(url):
@@ -53,9 +61,10 @@ class Cursor:
 
 
 class Conn:
-    def __init__(self, raw, dialect):
+    def __init__(self, raw, dialect, pool_url=None):
         self.raw = raw
         self.dialect = dialect
+        self.pool_url = pool_url
 
     def execute(self, sql, args=()):
         args = tuple(args)
@@ -83,10 +92,54 @@ class Conn:
         self.raw.rollback()
 
     def close(self):
-        self.raw.close()
+        if self.pool_url:
+            try:
+                self.raw.rollback()
+                with _spare_lock:
+                    spare = _spare.setdefault(self.pool_url, [])
+                    if len(spare) < POOL_SIZE:
+                        spare.append((self.raw, time.time()))
+                        return
+            except Exception:
+                pass
+        try:
+            self.raw.close()
+        except Exception:
+            pass
+
+
+def drain():
+    """Close every kept connection, for example after the tables were dropped."""
+    with _spare_lock:
+        old = [raw for kept in _spare.values() for raw, _ in kept]
+        _spare.clear()
+    for raw in old:
+        try:
+            raw.close()
+        except Exception:
+            pass
 
 
 def connect(url):
+    dialect = dialect_of(url)
+    if dialect != "sqlite":
+        with _spare_lock:
+            kept = _spare.setdefault(url, [])
+            while kept:
+                raw, since = kept.pop()
+                if time.time() - since < STALE_AFTER:
+                    return Conn(raw, dialect, url)
+                try:
+                    raw.close()
+                except Exception:
+                    pass
+    conn = _open(url)
+    if dialect != "sqlite":
+        conn.pool_url = url
+    return conn
+
+
+def _open(url):
     dialect = dialect_of(url)
     if dialect == "postgresql":
         import psycopg
@@ -139,18 +192,40 @@ def _has_users_table(conn):
     ).fetchone()["n"] > 0
 
 
+class _Lazy:
+    """Stands in for a connection until a query needs one, so static files and health checks never open any."""
+
+    def __init__(self, url):
+        self.url = url
+        self.conn = None
+
+    def get(self):
+        if self.conn is None:
+            self.conn = connect(self.url)
+        return self.conn
+
+
 def use(conn):
     """Make conn the current connection; returns a token for release()."""
     return _conn.set(conn)
 
 
+def use_lazy(url):
+    return _conn.set(_Lazy(url))
+
+
 def release(token):
-    _conn.get().close()
+    current = _conn.get()
+    if isinstance(current, _Lazy):
+        current = current.conn
+    if current is not None:
+        current.close()
     _conn.reset(token)
 
 
 def get_db():
-    return _conn.get()
+    current = _conn.get()
+    return current.get() if isinstance(current, _Lazy) else current
 
 
 def one(sql, *args):

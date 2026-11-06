@@ -119,14 +119,20 @@ def require_edit(case_id, user):
 def upcoming_hearings(limit=6):
     """The next court dates on cases that are still open."""
     today = now()[:10]
-    found = clean(mdb().court_dates.find({"date": {"$gte": today}, "outcome": ""}).sort("date", 1))
+    found = clean(mdb().court_dates.find({"date": {"$gte": today}, "outcome": ""}).sort("date", 1).limit(60))
+    if not found:
+        return []
+    ids = sorted({item["case_id"] for item in found})
+    # one query for all of them; asking per hearing costs a round trip each on a hosted database
+    rows = many(
+        "SELECT cs.case_id, cs.status, c.title FROM crime_case cs JOIN complaint c ON c.complaint_id = cs.complaint_id"
+        f" WHERE cs.case_id IN ({', '.join('?' * len(ids))})",
+        *ids,
+    )
+    cases = {row["case_id"]: row for row in rows}
     hearings = []
     for item in found:
-        case = one(
-            "SELECT cs.case_id, cs.status, c.title FROM crime_case cs JOIN complaint c ON c.complaint_id = cs.complaint_id"
-            " WHERE cs.case_id = ?",
-            item["case_id"],
-        )
+        case = cases.get(item["case_id"])
         if case and not is_closed(case["status"]):
             hearings.append({**item, "title": case["title"]})
         if len(hearings) == limit:
@@ -138,13 +144,18 @@ def upcoming_hearings(limit=6):
 def dashboard(user=login_required("officer", "admin")):
     mine = my_officer_id(user)
     open_states = "('Under Investigation', 'Chargesheet Filed')"
+    row = one(
+        "SELECT"
+        " (SELECT COUNT(*) FROM complaint WHERE status = 'Filed') AS awaiting,"
+        f" SUM(CASE WHEN status IN {open_states} THEN 1 ELSE 0 END) AS open_cases,"
+        f" SUM(CASE WHEN officer_id = ? AND status IN {open_states} THEN 1 ELSE 0 END) AS mine,"
+        " SUM(CASE WHEN status LIKE 'Closed%' THEN 1 ELSE 0 END) AS closed"
+        " FROM crime_case",
+        mine or 0,
+    )
     counts = {
-        "awaiting": one("SELECT COUNT(*) AS n FROM complaint WHERE status = 'Filed'")["n"],
-        "open": one(f'SELECT COUNT(*) AS n FROM crime_case WHERE status IN {open_states}')["n"],
-        "mine": one(
-            f'SELECT COUNT(*) AS n FROM crime_case WHERE officer_id = ? AND status IN {open_states}', mine
-        )["n"] if mine else 0,
-        "closed": one("SELECT COUNT(*) AS n FROM crime_case WHERE status LIKE 'Closed%'")["n"],
+        "awaiting": int(row["awaiting"] or 0), "open": int(row["open_cases"] or 0),
+        "mine": int(row["mine"] or 0) if mine else 0, "closed": int(row["closed"] or 0),
     }
     queue = many(
         "SELECT c.*, u.name AS citizen_name FROM complaint c"

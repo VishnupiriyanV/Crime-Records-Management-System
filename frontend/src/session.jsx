@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { api } from './api.js';
 
 const Session = createContext(null);
-const POLL_MS = 20000;
+const POLL_MS = 10000;
 export const useSession = () => useContext(Session);
 
 export function SessionProvider({ children }) {

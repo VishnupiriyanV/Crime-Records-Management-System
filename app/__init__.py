@@ -32,7 +32,7 @@ def create_app(database=None, secret=None, mongo_client=None):
 
     @app.middleware("http")
     async def connection(request: Request, call_next):
-        token = db.use(db.connect(path))
+        token = db.use_lazy(path)
         try:
             return await call_next(request)
         finally:
