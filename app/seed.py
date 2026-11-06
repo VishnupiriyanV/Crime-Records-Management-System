@@ -92,6 +92,11 @@ def seed_bulk(count):
             token = db.use(db.connect(path))
         if one("SELECT COUNT(*) AS n FROM complaint")["n"] > 20:
             sys.exit("This database already has plenty of complaints; sample records not added.")
+        if one("SELECT COUNT(*) AS n FROM complaint")["n"] == 0:
+            # a load that died half way leaves case-file records with no complaint; they would clash with the new ones
+            for name in ("evidence", "statements", "arrests", "court_dates", "chargesheets",
+                         "status_log", "notes", "notifications", "attachments", "attachment_files"):
+                mongo.mdb()[name].delete_many({})
         made = demo_data.generate(count)
         print(f"Added {made} sample complaints with their cases, evidence and records.")
     finally:

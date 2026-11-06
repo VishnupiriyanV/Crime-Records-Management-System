@@ -15,25 +15,24 @@ from .main_config import database_url
 from .seed import seed_admin, seed_bulk
 
 
-def has_users():
+def count(table):
     path = database_url()
     db.init_db(path)
     token = db.use(db.connect(path))
     try:
-        return bool(one("SELECT 1 FROM users LIMIT 1"))
+        return one(f"SELECT COUNT(*) AS n FROM {table}")["n"]
     finally:
         db.release(token)
 
 
 def main(sample_only=False):
-    if has_users():
-        return
     sample = os.environ.get("CRMS_SAMPLE_DATA", "").strip()
     email = os.environ.get("CRMS_ADMIN_EMAIL", "").strip()
     if sample.isdigit() and int(sample) > 0:
-        if sample_only:
+        # judged by complaints, not users, so a load that was cut off half way is picked up again
+        if sample_only and count("complaint") <= 20:
             seed_bulk(int(sample))
-    elif email and not sample_only:
+    elif email and not sample_only and count("users") == 0:
         seed_admin(email)
 
 
