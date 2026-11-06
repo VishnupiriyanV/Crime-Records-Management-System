@@ -15,12 +15,13 @@ _db = None
 def configure(url=None, name="crms", client=None):
     global _db
     if client is None:
-        client = MongoClient(url, serverSelectionTimeoutMS=3000)
+        client = MongoClient(url, serverSelectionTimeoutMS=15000)
         try:
             client.admin.command("ping")
-        except PyMongoError:
+        except PyMongoError as err:
             shown = re.sub(r"//[^@/]*@", "//", url or "")  # never print the password
-            raise RuntimeError(f"Cannot reach MongoDB at {shown}. Start it, or set MONGO_URL.") from None
+            reason = str(err).replace(url or "", shown)[:300]
+            raise RuntimeError(f"Cannot reach MongoDB at {shown}. Start it, or set MONGO_URL. ({reason})") from None
     _db = client[name]
     _db.evidence.create_index([("case_id", ASCENDING), ("evidence_no", ASCENDING)], unique=True)
     _db.notes.create_index("complaint_id")
