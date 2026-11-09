@@ -16,3 +16,15 @@ CLAUDE.md
 plan*.md
 PLAN*.md
 docs/
+
+# design tooling and AI agent files stay local
+PRODUCT.md
+DESIGN.md
+.impeccable/
+.agent/
+.agents/
+.codex/
+.gemini/
+.hermes/
+.opencode/
+.pi/

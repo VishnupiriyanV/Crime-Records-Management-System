@@ -1,7 +1,7 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api, upload, withQuery } from '../api.js';
 import { Bars, Line } from '../charts.jsx';
-import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, Flags, formData, Loading, PageHead, Pager, SortTh, Status, Tags, Timeline, useAct, useLoad } from '../ui.jsx';
+import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, Flags, formData, Loading, PageHead, Pager, SortTh, Stamp, Status, Tags, Timeline, useAct, useLoad } from '../ui.jsx';
 import { useSession } from '../session.jsx';
 import { Dictate } from '../voice.jsx';
 import { useT } from '../i18n.jsx';
@@ -238,7 +238,7 @@ export function Case() {
     <>
       <Crumbs trail={[['Cases', '/cases']]} here={t('Case {id}', { id: c.case_id })} />
       <PageHead title={c.title} text={t('{fir}, opened {date} at {station}', { fir: c.fir_no, date: c.date_opened, station: c.station })}>
-        <div className="head-actions"><Tags category={c.category} severity={c.severity} /><Status value={c.status} /><a className="btn btn--small" href={`/api/export/cases/${c.case_id}.pdf`}>{t('Download PDF')}</a></div>
+        <div className="head-actions"><Tags category={c.category} severity={c.severity} /><Stamp value={c.status} date={[...timeline].reverse().find((e) => e.kind === 'status')?.at || c.date_opened} /><a className="btn btn--small" href={`/api/export/cases/${c.case_id}.pdf`}>{t('Download PDF')}</a></div>
       </PageHead>
       {flags.length > 0 && <div className="flash flash--error">{t('Needs attention:')}{' '}<Flags items={flags} /></div>}
       {!editable && (

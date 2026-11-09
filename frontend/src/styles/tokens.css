@@ -1,43 +1,59 @@
 :root {
   color-scheme: light;
   --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
-  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
-  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
+  --text-xs: 0.8125rem; --text-sm: 0.9375rem; --text-md: 1.0625rem; --text-lg: 1.25rem; --text-xl: 1.5rem; --text-2xl: 1.75rem; --text-3xl: 2rem;
+  --text-display-s: 1.5rem; --text-display: 1.5rem; --text-section: 1.125rem; --text-title: 1rem; --text-lead: 1rem;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
-  --color-error: oklch(52% 0.19 27); --color-success: oklch(50% 0.12 150);
+  --dur-micro: 120ms; --dur-short: 200ms; --dur-long: 360ms;
   --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
   --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
-  --color-paper: oklch(84% 0.012 245); --color-paper-2: oklch(81% 0.012 245); --color-paper-3: oklch(77% 0.012 245);
-  --color-ink: oklch(16% 0.020 245); --color-ink-2: oklch(24% 0.018 245); --color-muted: oklch(38% 0.016 245);
-  --color-rule: oklch(73% 0.013 240); --color-rule-2: oklch(32% 0.018 240);
-  --color-accent: oklch(45% 0.180 350); --color-accent-2: oklch(37% 0.160 350); --color-accent-ink: oklch(97% 0.006 245); --color-focus: oklch(46% 0.190 350);
-  --color-sheet: oklch(93.5% 0.008 245);
-  --font-display: "Hanken Grotesk", "Noto Sans Tamil", "Noto Sans Devanagari", ui-sans-serif, system-ui, sans-serif;
-  --font-body: "Newsreader", "Noto Sans Tamil", "Noto Sans Devanagari", ui-serif, Georgia, serif;
-  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
-  --radius-card: 0; --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px; --shadow-card: none;
-  --tracking-display: -0.02em; --display-weight: 600;
+
+  /* postal ground, white paper, navy ink */
+  --color-paper: #e9eef4; --color-paper-2: #f2f5f9; --color-paper-3: #e1e8f0;
+  --color-sheet: #ffffff;
+  --color-ink: #14213d; --color-ink-2: #2f3e5b; --color-muted: #51617a;
+  --color-rule: #d2dbe6; --color-rule-2: #94a6bd;
+  /* the ink used for links, primary actions and the open state; red is kept for overdue, rejected and danger */
+  --color-accent: #1f4b99; --color-accent-2: #163a79; --color-accent-ink: #ffffff; --color-focus: #1f4b99;
+  --color-error: #b3202a; --color-success: #1d6f46; --color-warn: #8a5a00;
+  --color-error-tint: #fbe9ea; --color-success-tint: #e4f3ea; --color-open-tint: #e6eefb;
+  --color-shell: #14213d; --color-shell-ink: #eef2fa; --color-shell-line: rgb(255 255 255 / 0.16);
+  --color-stamp-red: #b3202a; --color-header-rule: #b3202a;
+
+  --font-display: "Noto Sans", "Noto Sans Tamil", "Noto Sans Devanagari", system-ui, sans-serif;
+  --font-body: "Noto Sans", "Noto Sans Tamil", "Noto Sans Devanagari", system-ui, sans-serif;
+  --font-outlier: "Noto Sans Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --radius-card: 6px; --radius-pill: 4px; --rule-hair: 1px; --rule-bar: 2px;
+  --shadow-card: 0 1px 2px rgb(20 33 61 / 0.08), 0 1px 1px rgb(20 33 61 / 0.04);
+  --tracking-display: -0.005em; --display-weight: 650;
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --color-paper: oklch(20% 0.014 245); --color-paper-2: oklch(23% 0.014 245); --color-paper-3: oklch(27% 0.014 245);
-  --color-ink: oklch(93% 0.008 245); --color-ink-2: oklch(86% 0.010 245); --color-muted: oklch(71% 0.014 245);
-  --color-rule: oklch(34% 0.014 240); --color-rule-2: oklch(72% 0.014 240);
-  --color-accent: oklch(72% 0.150 350); --color-accent-2: oklch(79% 0.130 350); --color-accent-ink: oklch(18% 0.020 245); --color-focus: oklch(76% 0.150 350);
-  --color-sheet: oklch(24% 0.014 245);
-  --color-error: oklch(72% 0.16 27); --color-success: oklch(75% 0.12 150);
+  --color-paper: #0d1324; --color-paper-2: #19223d; --color-paper-3: #212c4d;
+  --color-sheet: #141c33;
+  --color-ink: #e9eef8; --color-ink-2: #c7d1e4; --color-muted: #9aa9c4;
+  --color-rule: #2a3556; --color-rule-2: #5c6d92;
+  --color-accent: #8db4ff; --color-accent-2: #b4cdff; --color-accent-ink: #0d1a38; --color-focus: #8db4ff;
+  --color-error: #ff8f8f; --color-success: #66d6a0; --color-warn: #f0b660;
+  --color-error-tint: #3b1d27; --color-success-tint: #17352b; --color-open-tint: #1d2b52;
+  --color-shell: #090e1c; --color-shell-ink: #e9eef8; --color-shell-line: rgb(255 255 255 / 0.14);
+  --color-stamp-red: #ff8f8f; --color-header-rule: #c4353d;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --color-paper: oklch(20% 0.014 245); --color-paper-2: oklch(23% 0.014 245); --color-paper-3: oklch(27% 0.014 245);
-    --color-ink: oklch(93% 0.008 245); --color-ink-2: oklch(86% 0.010 245); --color-muted: oklch(71% 0.014 245);
-    --color-rule: oklch(34% 0.014 240); --color-rule-2: oklch(72% 0.014 240);
-    --color-accent: oklch(72% 0.150 350); --color-accent-2: oklch(79% 0.130 350); --color-accent-ink: oklch(18% 0.020 245); --color-focus: oklch(76% 0.150 350);
-    --color-sheet: oklch(24% 0.014 245);
-    --color-error: oklch(72% 0.16 27); --color-success: oklch(75% 0.12 150);
+    --color-paper: #0d1324; --color-paper-2: #19223d; --color-paper-3: #212c4d;
+    --color-sheet: #141c33;
+    --color-ink: #e9eef8; --color-ink-2: #c7d1e4; --color-muted: #9aa9c4;
+    --color-rule: #2a3556; --color-rule-2: #5c6d92;
+    --color-accent: #8db4ff; --color-accent-2: #b4cdff; --color-accent-ink: #0d1a38; --color-focus: #8db4ff;
+    --color-error: #ff8f8f; --color-success: #66d6a0; --color-warn: #f0b660;
+    --color-error-tint: #3b1d27; --color-success-tint: #17352b; --color-open-tint: #1d2b52;
+    --color-shell: #090e1c; --color-shell-ink: #e9eef8; --color-shell-line: rgb(255 255 255 / 0.14);
+    --color-stamp-red: #ff8f8f; --color-header-rule: #c4353d;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
   }
 }
