@@ -250,7 +250,7 @@ def test_staff_screens_work_in_tamil_and_hindi(page):
             page.wait_for_selector("h1, .empty")
             page.wait_for_timeout(150)
         # the menu itself is translated, not just the page body
-        assert page.locator(".nav a").first.inner_text() not in ("Dashboard", "")
+        assert page.locator(".rail a").first.inner_text() not in ("Dashboard", "")
     assert errors == []
 
     # the longer words must not push a phone screen sideways

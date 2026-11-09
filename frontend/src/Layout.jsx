@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { api } from './api.js';
 import { useSession } from './session.jsx';
 import { LANGUAGES, useLang, useT } from './i18n.jsx';
+import { watchTables } from './labels.js';
 
 const links = {
   citizen: [['/complaints', 'My complaints'], ['/complaints/new', 'File a complaint'], ['/records', 'Public records']],
@@ -35,6 +36,8 @@ export default function Layout() {
   const navigate = useNavigate();
   const searchBox = useRef(null);
   const help = useRef(null);
+  const page = useRef(null);
+  useEffect(() => watchTables(page.current), []);
 
   useEffect(() => {
     if (!user) return undefined;
@@ -78,19 +81,14 @@ export default function Layout() {
   }
 
   return (
-    <>
+    <div className={`frame${user ? ' frame--rail' : ''}`}>
       <header className="top">
         <div className="shell">
           <Link className="brand" to="/">CRMS</Link>
           {user && (
             <>
-              <nav className="nav" aria-label={t('Main')}>
-                {links[user.role].map(([to, label]) => (
-                  <NavLink key={to} to={to} end={to === '/complaints'}>{t(label)}</NavLink>
-                ))}
-              </nav>
               <form className="search" role="search" onSubmit={search}>
-                <input ref={searchBox} name="q" type="search" placeholder={t('Search ( / )')} aria-label={t('Search')} autoComplete="off" />
+                <input ref={searchBox} name="q" type="search" placeholder={t(matchMedia('(pointer: coarse)').matches ? 'Search' : 'Search ( / )')} aria-label={t('Search')} autoComplete="off" />
               </form>
               <div className="who">
                 <Link className="bell" to="/notifications">{t('Alerts')}{unread > 0 && <b>{unread}</b>}</Link>
@@ -107,7 +105,15 @@ export default function Layout() {
           </button>
         </div>
       </header>
-      <main>
+      {user && (
+        <nav className="rail" aria-label={t('Main')}>
+          {links[user.role].map(([to, label]) => (
+            <NavLink key={to} to={to} end={to === '/complaints'}>{t(label)}</NavLink>
+          ))}
+        </nav>
+      )}
+      <div className="area">
+      <main ref={page}>
         <div className="shell">
           {flash && <div className={`flash ${flash.type === 'error' ? 'flash--error' : ''}`} role={flash.type === 'error' ? 'alert' : 'status'}>{t(flash.text)}</div>}
           <Outlet />
@@ -119,6 +125,7 @@ export default function Layout() {
           {user && <button className="link-btn" onClick={() => help.current?.showModal()}>{t('Keyboard shortcuts')}</button>}
         </div>
       </footer>
+      </div>
       <dialog ref={help} className="preview help" onClick={(e) => e.target === help.current && help.current.close()}>
         <div className="preview-head"><b>{t('Keyboard shortcuts')}</b><button className="link-btn" onClick={() => help.current.close()}>{t('Close')}</button></div>
         {user && (
@@ -131,6 +138,6 @@ export default function Layout() {
           </dl>
         )}
       </dialog>
-    </>
+    </div>
   );
 }
