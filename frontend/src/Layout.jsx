@@ -4,12 +4,7 @@ import { api } from './api.js';
 import { useSession } from './session.jsx';
 import { LANGUAGES, useLang, useT } from './i18n.jsx';
 import { watchTables } from './labels.js';
-
-const links = {
-  citizen: [['/complaints', 'My complaints'], ['/complaints/new', 'File a complaint'], ['/records', 'Public records']],
-  officer: [['/dashboard', 'Dashboard'], ['/complaints', 'Complaints'], ['/cases', 'Cases'], ['/criminals', 'Criminals'], ['/map', 'Map'], ['/stations', 'Stations']],
-  admin: [['/dashboard', 'Dashboard'], ['/complaints', 'Complaints'], ['/cases', 'Cases'], ['/criminals', 'Criminals'], ['/map', 'Map'], ['/stations', 'Stations'], ['/reports', 'Reports'], ['/users', 'Users'], ['/audit', 'Audit'], ['/integrations', 'Integrations']],
-};
+import { links } from './nav.js';
 
 // press g, then one of these keys, to jump to a page
 const jumps = {
@@ -81,7 +76,7 @@ export default function Layout() {
   }
 
   return (
-    <div className={`frame${user ? ' frame--rail' : ''}`}>
+    <div className="frame">
       <header className="top">
         <div className="shell">
           <Link className="brand" to="/">CRMS</Link>
@@ -106,7 +101,7 @@ export default function Layout() {
         </div>
       </header>
       {user && (
-        <nav className="rail" aria-label={t('Main')}>
+        <nav className="pivot" aria-label={t('Main')}>
           {links[user.role].map(([to, label]) => (
             <NavLink key={to} to={to} end={to === '/complaints'}>{t(label)}</NavLink>
           ))}

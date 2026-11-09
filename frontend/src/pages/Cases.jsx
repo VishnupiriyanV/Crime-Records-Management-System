@@ -4,6 +4,7 @@ import { api, upload, withQuery } from '../api.js';
 import { Bars, Line } from '../charts.jsx';
 import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, Flags, formData, Loading, PageHead, Pager, SortTh, Status, Tags, Timeline, useAct, useLoad } from '../ui.jsx';
 import { useSession } from '../session.jsx';
+import { links } from '../nav.js';
 import { Dictate } from '../voice.jsx';
 import { useT } from '../i18n.jsx';
 
@@ -46,6 +47,7 @@ function Attention() {
 
 export function Dashboard() {
   const t = useT();
+  const { user } = useSession();
   const { data, error, loading, reload } = useLoad('/dashboard');
   if (loading) return <Loading />;
   if (error) return <Failed error={error} retry={reload} />;
@@ -55,10 +57,20 @@ export function Dashboard() {
     <>
       <PageHead title={t('Dashboard')} text="What needs attention at the station today." />
       <div className="stats">
-        <div className="stat"><b>{counts.awaiting}</b><span>{t('Complaints awaiting review')}</span></div>
-        <div className="stat"><b>{counts.open}</b><span>{t('Open cases')}</span></div>
-        <div className="stat"><b>{counts.mine}</b><span>{t('Assigned to you')}</span></div>
-        <div className="stat"><b>{counts.closed}</b><span>{t('Closed cases')}</span></div>
+        <Link className="stat stat--amber" to="/complaints?status=Filed"><b>{counts.awaiting}</b><span>{t('Complaints awaiting review')}</span></Link>
+        <Link className="stat" to="/cases"><b>{counts.open}</b><span>{t('Open cases')}</span></Link>
+        <Link className="stat stat--green" to="/cases?mine=1"><b>{counts.mine}</b><span>{t('Assigned to you')}</span></Link>
+        <Link className="stat" to="/cases?status=Closed (Resolved)"><b>{counts.closed}</b><span>{t('Closed cases')}</span></Link>
+      </div>
+
+      <div className="tiles">
+        {links[user.role].filter(([to]) => to !== '/dashboard').map(([to, label]) => (
+          <Link key={to} className={`tile tile--${to === '/complaints' && counts.awaiting ? 'amber' : 'char'}`} to={to}>
+            {t(label)}
+            {to === '/complaints' && counts.awaiting > 0 && <span className="tile-count">{counts.awaiting}</span>}
+            {to === '/cases' && counts.open > 0 && <span className="tile-count">{counts.open}</span>}
+          </Link>
+        ))}
       </div>
 
       <Attention />
@@ -258,7 +270,7 @@ export function Case() {
   return (
     <>
       <Crumbs trail={[['Cases', '/cases']]} here={t('Case {id}', { id: c.case_id })} />
-      <PageHead title={c.title} text={t('{fir}, opened {date} at {station}', { fir: c.fir_no, date: c.date_opened, station: c.station })}>
+      <PageHead data title={c.title} text={t('{fir}, opened {date} at {station}', { fir: c.fir_no, date: c.date_opened, station: c.station })}>
         <div className="head-actions"><Tags category={c.category} severity={c.severity} /><Status value={c.status} /><a className="btn btn--small" href={`/api/export/cases/${c.case_id}.pdf`}>{t('Download PDF')}</a></div>
       </PageHead>
       {flags.length > 0 && <div className="flash flash--error">{t('Needs attention:')}{' '}<Flags items={flags} /></div>}
@@ -268,7 +280,7 @@ export function Case() {
         </div>
       )}
 
-      <div className="cols">
+      <div className="cols cols--flat">
         <div>
           <section className="panel">
             <h2>{t('Complaint')}</h2>
@@ -438,7 +450,7 @@ export function Case() {
         </div>
 
         <div>
-          <section className="panel">
+          <section className={`panel panel--tile tile--${c.status === 'Closed (Resolved)' ? 'green' : c.status.startsWith('Closed') ? 'char' : 'amber'}`}>
             <h2>{t('Status')}</h2>
             <dl className="facts">
               <dt>{t('Current')}</dt><dd><Status value={c.status} /></dd>

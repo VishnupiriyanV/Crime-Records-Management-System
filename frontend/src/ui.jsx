@@ -43,10 +43,10 @@ export function useTitle(title) {
   useEffect(() => { document.title = `${t(title)} | CRMS`; }, [title, t]);
 }
 
-export function PageHead({ title, text, children }) {
+export function PageHead({ title, text, data, children }) {
   const t = useT();
   useTitle(title);
-  return <div className="page-head"><div><h1>{t(title)}</h1>{text && <p>{t(text)}</p>}</div>{children}</div>;
+  return <div className="page-head"><div><h1 className={data ? 'raw' : undefined}>{data ? title : t(title)}</h1>{text && <p>{t(text)}</p>}</div>{children}</div>;
 }
 
 export function Crumbs({ trail, here }) {

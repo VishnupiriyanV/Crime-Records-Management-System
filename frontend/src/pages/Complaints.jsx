@@ -23,9 +23,15 @@ export function Complaints() {
       >
         <div className="head-actions">
           <Download path="/export/complaints.csv" params={params}>{t('Export CSV')}</Download>
-          {citizen && <Link className="btn btn--primary" to="/complaints/new">{t('File a complaint')}</Link>}
         </div>
       </PageHead>
+
+      {citizen && (
+        <div className="tiles">
+          <Link className="tile tile--amber tile--wide" to="/complaints/new">{t('File a complaint')}</Link>
+          <Link className="tile tile--char" to="/records">{t('Public records')}</Link>
+        </div>
+      )}
 
       <Filters>
         {(p) => (
@@ -239,7 +245,7 @@ export function Complaint() {
   return (
     <>
       <Crumbs trail={[['Complaints', '/complaints']]} here={t('No. {id}', { id: c.complaint_id })} />
-      <PageHead title={c.title} text={t('{fir}, filed by {name} on {date}', { fir: c.fir_no, name: c.citizen_name, date: c.date_filed })}><div className="head-actions"><Tags category={c.category} severity={c.severity} /><Status value={c.status} /></div></PageHead>
+      <PageHead data title={c.title} text={t('{fir}, filed by {name} on {date}', { fir: c.fir_no, name: c.citizen_name, date: c.date_filed })}><div className="head-actions"><Tags category={c.category} severity={c.severity} /><Status value={c.status} /></div></PageHead>
       {flags && flags.length > 0 && <div className="flash flash--error">{t('Needs attention:')}{' '}<Flags items={flags} /></div>}
       <Progress complaint={c} kase={kase} />
 

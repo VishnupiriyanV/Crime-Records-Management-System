@@ -1,59 +1,63 @@
 :root {
   color-scheme: light;
   --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
-  --text-xs: 0.8125rem; --text-sm: 0.9375rem; --text-md: 1.0625rem; --text-lg: 1.25rem; --text-xl: 1.5rem; --text-2xl: 1.75rem; --text-3xl: 2rem;
+  --text-xs: 0.8125rem; --text-sm: 0.9375rem; --text-md: 1.0625rem; --text-lg: 1.25rem; --text-xl: 1.5rem; --text-2xl: 1.75rem; --text-3xl: 2.75rem;
   --text-display-s: 1.5rem; --text-display: 1.5rem; --text-section: 1.125rem; --text-title: 1rem; --text-lead: 1rem;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --dur-micro: 120ms; --dur-short: 200ms; --dur-long: 360ms;
   --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
   --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
 
-  /* olive-khaki ground, lighter khaki register pages, brown-black ink, register red, brass */
-  --color-paper: #d9d6bb; --color-paper-2: #e9e6d0; --color-paper-3: #cbc7a8;
-  --color-sheet: #f5f3e4;
-  --color-ink: #2a261b; --color-ink-2: #433e2c; --color-muted: #5d573e;
-  --color-rule: #c5c19f; --color-rule-2: #8a8460;
-  --color-accent: #8f1d21; --color-accent-2: #6e1418; --color-accent-ink: #fdf9ec; --color-focus: #8a6511;
-  --color-brass: #b8924a; --color-margin: #a3262b;
-  --color-error: #9b1c20; --color-success: #3b6a24; --color-warn: #8a5a00;
-  --color-error-tint: #f3dcd6; --color-success-tint: #e1e8cc; --color-open-tint: #ebe6c8;
-  --color-shell: #2f2a1c; --color-shell-ink: #f0ecd6; --color-shell-line: rgb(240 236 214 / 0.2);
+  /* white ground, black ink, flat tiles in four warm inks; amber owns every live and selected state */
+  --color-paper: #ffffff; --color-paper-2: #f0f0ec; --color-paper-3: #e2e2dc;
+  --color-sheet: #f0f0ec;
+  --color-ink: #111111; --color-ink-2: #2b2b29; --color-muted: #5c5c57;
+  --color-rule: #d8d8d1; --color-rule-2: #8a8a82;
+  --color-accent: #111111; --color-accent-2: #333333; --color-accent-ink: #ffffff; --color-focus: #111111;
+  --tone-amber: #f5a800; --tone-amber-ink: #111111;
+  --tone-red: #d4361f; --tone-red-ink: #ffffff;
+  --tone-green: #25803f; --tone-green-ink: #ffffff;
+  --tone-char: #1d1d1d; --tone-char-ink: #ffffff;
+  --color-error: #b32a16; --color-success: #1f7a39; --color-warn: #8a5a00;
+  --color-error-tint: #f6d9d3; --color-success-tint: #d9ebdd; --color-open-tint: #fbe7b0;
 
   --font-display: "Noto Sans", "Noto Sans Tamil", "Noto Sans Devanagari", system-ui, sans-serif;
   --font-body: "Noto Sans", "Noto Sans Tamil", "Noto Sans Devanagari", system-ui, sans-serif;
-  --font-title: "Noto Serif", "Noto Serif Tamil", "Noto Serif Devanagari", Georgia, serif;
   --font-outlier: "Noto Sans Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  --radius-card: 2px; --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px;
-  --shadow-card: 0 1px 0 rgb(42 38 27 / 0.12);
-  --tracking-display: -0.005em; --display-weight: 700;
+  --radius-card: 0; --radius-pill: 0; --rule-hair: 1px; --rule-bar: 2px;
+  --shadow-card: none;
+  --tracking-display: -0.02em; --display-weight: 300;
+  --gap-tile: 8px;
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --color-paper: #16150f; --color-paper-2: #24231a; --color-paper-3: #2d2b20;
-  --color-sheet: #1e1d15;
-  --color-ink: #ece8d2; --color-ink-2: #d3cfb8; --color-muted: #aaa488;
-  --color-rule: #3a3828; --color-rule-2: #7d7757;
-  --color-accent: #e7807a; --color-accent-2: #f2a39d; --color-accent-ink: #1a1410; --color-focus: #d5ac5c;
-  --color-brass: #d1a85a; --color-margin: #c24b48;
-  --color-error: #f08a84; --color-success: #9bc873; --color-warn: #e8b04a;
-  --color-error-tint: #3a1f1c; --color-success-tint: #26301a; --color-open-tint: #2b281a;
-  --color-shell: #0f0e09; --color-shell-ink: #ece8d2; --color-shell-line: rgb(236 232 210 / 0.18);
-  --shadow-card: none;
+  --color-paper: #0b0b0a; --color-paper-2: #1e1e1c; --color-paper-3: #2a2a27;
+  --color-sheet: #1a1a18;
+  --color-ink: #f4f4f1; --color-ink-2: #d9d9d4; --color-muted: #a6a69f;
+  --color-rule: #32322e; --color-rule-2: #6f6f68;
+  --color-accent: #f4f4f1; --color-accent-2: #d9d9d4; --color-accent-ink: #0b0b0a; --color-focus: #f4f4f1;
+  --tone-amber: #f5a800; --tone-amber-ink: #111111;
+  --tone-red: #e8503a; --tone-red-ink: #120805;
+  --tone-green: #3dae5b; --tone-green-ink: #06150b;
+  --tone-char: #2c2c29; --tone-char-ink: #f4f4f1;
+  --color-error: #ff8068; --color-success: #67d083; --color-warn: #e8b04a;
+  --color-error-tint: #3a1a14; --color-success-tint: #14301c; --color-open-tint: #3a2c06;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --color-paper: #16150f; --color-paper-2: #24231a; --color-paper-3: #2d2b20;
-    --color-sheet: #1e1d15;
-    --color-ink: #ece8d2; --color-ink-2: #d3cfb8; --color-muted: #aaa488;
-    --color-rule: #3a3828; --color-rule-2: #7d7757;
-    --color-accent: #e7807a; --color-accent-2: #f2a39d; --color-accent-ink: #1a1410; --color-focus: #d5ac5c;
-    --color-brass: #d1a85a; --color-margin: #c24b48;
-    --color-error: #f08a84; --color-success: #9bc873; --color-warn: #e8b04a;
-    --color-error-tint: #3a1f1c; --color-success-tint: #26301a; --color-open-tint: #2b281a;
-    --color-shell: #0f0e09; --color-shell-ink: #ece8d2; --color-shell-line: rgb(236 232 210 / 0.18);
-    --shadow-card: none;
+    --color-paper: #0b0b0a; --color-paper-2: #1e1e1c; --color-paper-3: #2a2a27;
+    --color-sheet: #1a1a18;
+    --color-ink: #f4f4f1; --color-ink-2: #d9d9d4; --color-muted: #a6a69f;
+    --color-rule: #32322e; --color-rule-2: #6f6f68;
+    --color-accent: #f4f4f1; --color-accent-2: #d9d9d4; --color-accent-ink: #0b0b0a; --color-focus: #f4f4f1;
+    --tone-amber: #f5a800; --tone-amber-ink: #111111;
+    --tone-red: #e8503a; --tone-red-ink: #120805;
+    --tone-green: #3dae5b; --tone-green-ink: #06150b;
+    --tone-char: #2c2c29; --tone-char-ink: #f4f4f1;
+    --color-error: #ff8068; --color-success: #67d083; --color-warn: #e8b04a;
+    --color-error-tint: #3a1a14; --color-success-tint: #14301c; --color-open-tint: #3a2c06;
   }
 }

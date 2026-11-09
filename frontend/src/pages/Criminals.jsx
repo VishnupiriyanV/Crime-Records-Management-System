@@ -88,7 +88,7 @@ export function CriminalForm() {
   return (
     <>
       <Crumbs trail={[['Criminal records', '/criminals']]} here={isNew ? 'New' : c.name} />
-      <PageHead title={isNew ? 'Add criminal record' : c.name} />
+      <PageHead data={!isNew} title={isNew ? 'Add criminal record' : c.name} />
       <div className={isNew ? '' : 'cols'}>
         <form className={`panel ${isNew ? 'form-narrow' : ''}`} onSubmit={save}>
           <Field label="Name" id="name"><input id="name" name="name" defaultValue={c.name || ''} required /></Field>

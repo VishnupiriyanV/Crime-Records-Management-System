@@ -42,7 +42,7 @@ export function Station() {
   return (
     <>
       <Crumbs trail={[['Stations', '/stations']]} here={station.name} />
-      <PageHead title={station.name} text={`${station.jurisdiction}${station.phone ? `, ${station.phone}` : ''}`} />
+      <PageHead data title={station.name} text={`${station.jurisdiction}${station.phone ? `, ${station.phone}` : ''}`} />
       <div className="stats stats--three stats--loose">
         <div className="stat"><b>{total}</b><span>{t('Cases')}</span></div>
         <div className="stat"><b>{open}</b><span>{t('Open')}</span></div>
@@ -120,7 +120,7 @@ export function Officer() {
       <div className="officer-head">
         <Avatar key={o.has_photo} officerId={o.officer_id} name={o.name} has={o.has_photo} size={96} />
         <div>
-          <h1>{o.name}</h1>
+          <h1 className="raw">{o.name}</h1>
           <p className="muted">{t('{rank}, badge {badge}, {station}', { rank: o.officer_rank, badge: o.badge_no, station: o.station })}</p>
           {!o.active && <span className="badge badge--bad">{t('Inactive')}</span>}
         </div>
