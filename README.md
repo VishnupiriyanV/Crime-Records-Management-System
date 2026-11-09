@@ -52,6 +52,12 @@ The tables are created on first start from `app/schemas/<database>.sql`. A datab
 
 Other settings, all optional on a development machine: `MONGO_URL` (default `mongodb://localhost:27017`), `MONGO_DB` (default `crms`), `CRMS_SECRET` (session signing key).
 
+## Overdue flags and duplicates
+
+Staff see red flags where work has waited too long, and the dashboard has a **Needs attention** panel with the counts. The limits are in `app/overdue.py`: a complaint unreviewed for 2 days, an open case with no officer for 3 days, an open case with no activity for 14 days (evidence, statements, arrests, court dates, files, status changes and reports all count as activity), and a court date that has passed with no outcome. High severity waits half as long. Officers see their own cases; admins see everything.
+
+When a citizen files a complaint, the form first checks their own earlier complaints for one that looks the same (similar wording, place and date) and asks before filing. Staff see **Possible duplicates** on a complaint page, with a button to reject one as a duplicate. The matching is plain word, distance and date comparison in `app/similar.py`, so it will miss a duplicate described in very different words. Citizens never see anyone else's complaints.
+
 ## Voice input
 
 On the complaint form, **Speak your complaint** takes a spoken account and fills the title, description, place, date and category. It only fills boxes that are still empty, and only sets a date when one was spoken ("yesterday", "3 days ago", "5 November"). Officers get a **Dictate** button next to the evidence, statement, report and chargesheet text boxes.

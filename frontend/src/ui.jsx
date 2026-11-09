@@ -193,6 +193,12 @@ export function Download({ path, params, children }) {
 }
 
 // the crime type and how serious it was judged to be
+// small red notes for work that has waited too long
+export function Flags({ items }) {
+  if (!items || !items.length) return null;
+  return <span className="flags">{items.map((f) => <span key={f.kind} className="badge badge--bad">{f.text}</span>)}</span>;
+}
+
 export function Tags({ category, severity }) {
   return (
     <span className="tags">

@@ -9,6 +9,7 @@ from ..lifecycle import (
     CASE_STATUSES, CASE_TRANSITIONS, RuleError, assign_officer, change_case_status, file_chargesheet, is_closed, notify,
 )
 from ..mongo import clean, mdb, now
+from ..overdue import case_flags
 from ..stats import monthly_complaints
 from ..timeline import case_timeline
 from .attachments import list_for, save_upload
@@ -215,8 +216,9 @@ def index(
         CASE_SELECT + f" {clause} ORDER BY {order_by(SORTS, sort, dir, 'no')} LIMIT ? OFFSET ?",
         *args, PAGE_SIZE, (page - 1) * PAGE_SIZE,
     )
+    flags = case_flags(rows)
     return {
-        "items": [with_fir(r) for r in rows], "statuses": CASE_STATUSES, "categories": CATEGORIES,
+        "items": [{**with_fir(r), "flags": flags.get(r["case_id"], [])} for r in rows], "statuses": CASE_STATUSES, "categories": CATEGORIES,
         "page": page, "total": total,
         "pages": max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1),
     }
@@ -262,6 +264,7 @@ def detail(case_id: int, user=login_required("officer", "admin")):
         "available": as_dicts(available), "reports": as_dicts(reports), "notes": notes,
         "history": history, "timeline": timeline, "attachments": attachments, "officers": as_dicts(officers),
         "editable": can_edit(case, user), "next_states": CASE_TRANSITIONS[case["status"]],
+        "flags": case_flags([case]).get(case_id, []),
     }
 
 

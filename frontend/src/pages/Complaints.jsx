@@ -1,9 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, upload, withQuery } from '../api.js';
 import { MiniMap, PinPicker } from '../MapView.jsx';
 import { useSession } from '../session.jsx';
-import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Progress, SortTh, Status, Tags, useAct, useLoad } from '../ui.jsx';
+import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Flags, Progress, SortTh, Status, Tags, useAct, useLoad } from '../ui.jsx';
 import { Dictate, SpeakComplaint } from '../voice.jsx';
 
 export function Complaints() {
@@ -73,7 +73,7 @@ export function Complaints() {
                   {data.items.map((c) => (
                     <tr key={c.complaint_id}>
                       <td className="num">{c.fir_no}</td>
-                      <td><Link to={`/complaints/${c.complaint_id}`}>{c.title}</Link></td>
+                      <td><Link to={`/complaints/${c.complaint_id}`}>{c.title}</Link><Flags items={c.flags} /></td>
                       <td><Tags category={c.category} severity={c.severity} /></td>
                       {!citizen && <td>{c.citizen_name}</td>}
                       <td>{c.location}</td>
@@ -101,6 +101,9 @@ export function NewComplaint() {
   const [pin, setPin] = useState(null);
   const pick = useCallback((at) => setPin(at), []);
   const [sending, setSending] = useState(false);
+  const [similar, setSimilar] = useState([]);
+  const skipCheck = useRef(false);
+  const formRef = useRef(null);
 
   const useMyLocation = () => {
     if (!navigator.geolocation) return notice('This browser cannot share a location.', 'error');
@@ -116,6 +119,13 @@ export function NewComplaint() {
     if (sending) return;
     setSending(true);
     return act(async () => {
+      if (!skipCheck.current) {
+        // warn about a complaint of the person's own that looks the same; if the check fails, filing goes ahead
+        let found = [];
+        try { found = (await api('/complaints/check', { method: 'POST', body })).items; } catch { /* not worth blocking the complaint */ }
+        if (found.length) { setSimilar(found); setSending(false); return; }
+      }
+      skipCheck.current = false;
       let complaint_id;
       try {
         ({ complaint_id } = await api('/complaints', { method: 'POST', body }));
@@ -137,7 +147,7 @@ export function NewComplaint() {
   return (
     <>
       <PageHead title="File a complaint" text="The station reviews every complaint before a case is opened." />
-      <form className="panel form-narrow" onSubmit={submit}>
+      <form className="panel form-narrow" onSubmit={submit} ref={formRef}>
         <SpeakComplaint />
         <Field label="Short title" id="title"><input id="title" name="title" maxLength={120} required /></Field>
         <Field label="What happened" id="description">
@@ -162,6 +172,23 @@ export function NewComplaint() {
         <Field label="Attach a file" id="file" hint="Optional. An image, PDF or text file, up to 5 MB.">
           <input id="file" name="file" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt" />
         </Field>
+        {similar.length > 0 && (
+          <div className="voice-panel" role="alert">
+            <b>You may have filed this already</b>
+            <ul className="trail">
+              {similar.map((x) => (
+                <li key={x.complaint_id}>
+                  <span><Link to={`/complaints/${x.complaint_id}`}>{x.fir_no} {x.title}</Link> <span className="muted">{x.status}, {x.reasons.join(', ')}</span></span>
+                </li>
+              ))}
+            </ul>
+            <div className="voice-row">
+              <button type="button" className="btn btn--small" onClick={() => { skipCheck.current = true; setSimilar([]); formRef.current.requestSubmit(); }}>
+                This is a different incident, file it
+              </button>
+            </div>
+          </div>
+        )}
         <div className="row" style={{ marginTop: 'var(--space-md)' }}>
           <button className="btn btn--primary" type="submit" disabled={sending}>{sending ? 'Submitting...' : 'Submit complaint'}</button>
           <Link className="btn" to="/complaints">Cancel</Link>
@@ -180,7 +207,7 @@ export function Complaint() {
   if (loading) return <Loading />;
   if (error) return <Failed error={error} retry={error.status === 404 ? undefined : reload} />;
 
-  const { complaint: c, case: kase, notes, history, attachments, stations, can_add_note, categories, severities } = data;
+  const { complaint: c, case: kase, notes, history, attachments, stations, can_add_note, categories, severities, flags } = data;
   const staff = user.role !== 'citizen';
   const post = (path, body, ok) => act(() => api(`/complaints/${id}${path}`, { method: 'POST', body }), ok);
 
@@ -211,6 +238,7 @@ export function Complaint() {
     <>
       <Crumbs trail={[['Complaints', '/complaints']]} here={`No. ${c.complaint_id}`} />
       <PageHead title={c.title} text={`${c.fir_no}, filed by ${c.citizen_name} on ${c.date_filed}`}><div className="head-actions"><Tags category={c.category} severity={c.severity} /><Status value={c.status} /></div></PageHead>
+      {flags && flags.length > 0 && <div className="flash flash--error">Needs attention: <Flags items={flags} /></div>}
       <Progress complaint={c} kase={kase} />
 
       <div className="cols">
@@ -293,6 +321,8 @@ export function Complaint() {
             </section>
           )}
 
+          {staff && <Similar id={id} canReject={c.status === 'Filed'} reject={(reason) => post('/reject', { reason }, 'Rejected as a duplicate.')} />}
+
           {staff && c.status !== 'Rejected' && !kase && (
             <section className="panel">
               <h2>Review</h2>
@@ -332,5 +362,27 @@ export function Complaint() {
         </div>
       </div>
     </>
+  );
+}
+
+// other complaints that look like this one, so a duplicate can be spotted before it is worked twice
+function Similar({ id, canReject, reject }) {
+  const { data } = useLoad(`/complaints/${id}/similar`);
+  if (!data || data.items.length === 0) return null;
+  return (
+    <section className="panel">
+      <h2>Possible duplicates</h2>
+      <ul className="trail">
+        {data.items.map((s) => (
+          <li key={s.complaint_id}>
+            <span>
+              <Link to={`/complaints/${s.complaint_id}`}>{s.fir_no}</Link> {s.title}
+              <div className="muted">{s.reasons.join(', ')}. {s.status}.</div>
+            </span>
+            {canReject && <button className="link-btn" onClick={() => reject(`Duplicate of ${s.fir_no}`)}>Reject as duplicate</button>}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

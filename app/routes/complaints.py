@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -6,6 +6,8 @@ from pydantic import BaseModel
 from ..auth import is_staff, login_required
 from ..constants import CATEGORIES, SEVERITIES, parse_fir, with_fir
 from ..dictation import read_complaint
+from ..overdue import complaint_flags
+from .. import similar
 from ..db import get_db, many, one, run
 from ..forms import as_dict, as_dicts, need, order_by, page_number
 from ..lifecycle import RuleError, is_closed, log_status, register_case, reject_complaint, verify_complaint
@@ -115,11 +117,59 @@ def index(
         f"{LIST_SELECT} {clause} ORDER BY {order_by(SORTS, sort, dir, 'no')} LIMIT ? OFFSET ?",
         *args, PAGE_SIZE, (page - 1) * PAGE_SIZE,
     )
+    flags = complaint_flags(rows) if is_staff(user) else {}
     return {
-        "items": [with_fir(r) for r in rows], "page": page, "total": total,
+        "items": [{**with_fir(r), "flags": flags.get(r["complaint_id"], [])} for r in rows], "page": page, "total": total,
         "pages": max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1),
         "categories": CATEGORIES, "severities": SEVERITIES,
     }
+
+
+class Draft(BaseModel):
+    title: str = ""
+    description: str = ""
+    location: str = ""
+    incident_date: str = ""
+    category: str = "Other"
+    latitude: float | None = None
+    longitude: float | None = None
+
+
+def similar_to(draft, user, exclude=None):
+    """Earlier complaints that look like this one. A citizen only ever sees their own."""
+    where, args = [], []
+    if not is_staff(user):
+        where.append("citizen_id = ?")
+        args.append(_citizen_id(user))
+    if exclude:
+        where.append("complaint_id != ?")
+        args.append(exclude)
+    try:
+        day = datetime.strptime(str(draft["incident_date"])[:10], "%Y-%m-%d").date()
+        where.append("incident_date >= ? AND incident_date <= ?")
+        args += [(day - timedelta(days=30)).isoformat(), (day + timedelta(days=30)).isoformat()]
+    except ValueError:
+        pass
+    rows = many(
+        "SELECT complaint_id, title, description, location, incident_date, date_filed, category, latitude, longitude, status"
+        f" FROM complaint {'WHERE ' + ' AND '.join(where) if where else ''} ORDER BY complaint_id DESC LIMIT 300", *args,
+    )
+    found = similar.find(draft, [dict(r) for r in rows])
+    return [
+        {k: v for k, v in with_fir(r).items() if k not in ("description", "latitude", "longitude")} for r in found
+    ]
+
+
+@router.post("/complaints/check")
+def check_draft(body: Draft, user=login_required()):
+    """Called before a complaint is filed, to warn about one that may already exist."""
+    return {"items": similar_to(body.model_dump(), user)}
+
+
+@router.get("/complaints/{complaint_id}/similar")
+def similar_complaints(complaint_id: int, user=login_required("officer", "admin")):
+    c = _load(complaint_id, user)
+    return {"items": similar_to(dict(c), user, exclude=complaint_id)}
 
 
 class Spoken(BaseModel):
@@ -202,6 +252,7 @@ def detail(complaint_id: int, user=login_required()):
         "complaint": with_fir(c), "case": as_dict(case), "notes": notes,
         "history": history, "attachments": list_for(complaint_id), "stations": as_dicts(stations), "can_add_note": can_add_note,
         "categories": CATEGORIES, "severities": SEVERITIES,
+        "flags": complaint_flags([c]).get(complaint_id, []) if is_staff(user) else [],
     }
 
 

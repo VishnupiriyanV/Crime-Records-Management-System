@@ -164,3 +164,25 @@ def test_admin_makes_a_token_and_a_webhook(page):
     expect(page.locator(".voice-panel code")).to_be_visible()  # the signing secret, shown once
     page.click("text=I have saved it")
     expect(page.locator("table.data").nth(1)).to_contain_text("case.opened")
+
+
+def test_similar_complaint_is_flagged_before_filing(page):
+    sign_in(page, "asha@e2e.test")
+
+    def fill(title, text):
+        page.goto(page.base + "/complaints/new")
+        page.fill("#title", title)
+        page.fill("#description", text)
+        page.fill("#location", "Harbour road jetty")
+        page.fill("#incident_date", "2026-09-14")
+        page.select_option("#category", "Theft")
+
+    fill("Boat engine stolen", "The outboard engine of my boat was stolen from the jetty on Harbour road")
+    page.click("text=Submit complaint")
+    expect(page).to_have_url(re.compile(r"/complaints/\d+$"))
+
+    fill("Boat engine theft", "Someone stole the outboard engine from my boat at the Harbour road jetty")
+    page.click("text=Submit complaint")
+    expect(page.locator(".voice-panel[role=alert]")).to_contain_text("You may have filed this already")
+    page.click("text=This is a different incident")
+    expect(page).to_have_url(re.compile(r"/complaints/\d+$"))

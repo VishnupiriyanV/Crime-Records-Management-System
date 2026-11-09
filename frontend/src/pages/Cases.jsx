@@ -1,9 +1,45 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api, upload, withQuery } from '../api.js';
 import { Bars, Line } from '../charts.jsx';
-import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, SortTh, Status, Tags, Timeline, useAct, useLoad } from '../ui.jsx';
+import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, Flags, formData, Loading, PageHead, Pager, SortTh, Status, Tags, Timeline, useAct, useLoad } from '../ui.jsx';
 import { useSession } from '../session.jsx';
 import { Dictate } from '../voice.jsx';
+
+const WAITING = {
+  unreviewed: 'Complaints waiting for review', unassigned: 'Cases with no officer',
+  stale: 'Cases with no recent activity', hearing: 'Hearings with no outcome',
+};
+
+// loads on its own so the rest of the dashboard does not wait for it
+function Attention() {
+  const { data, error } = useLoad('/attention');
+  if (error) return null;
+  if (!data) return <section className="panel"><h2>Needs attention</h2><div className="skeleton" /></section>;
+  const { counts, items, limits } = data;
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  return (
+    <section className="panel">
+      <h2>Needs attention</h2>
+      {total === 0 ? <Empty>Nothing has waited too long.</Empty> : (
+        <>
+          <div className="stats">
+            {Object.entries(WAITING).map(([kind, label]) => (
+              <div className="stat" key={kind}><b>{counts[kind]}</b><span>{label}</span></div>
+            ))}
+          </div>
+          <ul className="trail">
+            {items.map((i, n) => (
+              <li key={n}><span><Link to={i.link}>{i.fir} {i.title}</Link></span><span className="muted">{i.text}</span></li>
+            ))}
+          </ul>
+        </>
+      )}
+      <p className="muted" style={{ marginTop: 'var(--space-sm)' }}>
+        Flags appear after {limits.unreviewed} days unreviewed, {limits.unassigned} days with no officer and {limits.stale} days with no activity. High severity waits half as long.
+      </p>
+    </section>
+  );
+}
 
 export function Dashboard() {
   const { data, error, loading, reload } = useLoad('/dashboard');
@@ -20,6 +56,8 @@ export function Dashboard() {
         <div className="stat"><b>{counts.mine}</b><span>Assigned to you</span></div>
         <div className="stat"><b>{counts.closed}</b><span>Closed cases</span></div>
       </div>
+
+      <Attention />
 
       <div className="cols cols--even">
         <section className="panel">
@@ -136,7 +174,7 @@ export function Cases() {
                 <tbody>{data.items.map((c) => (
                   <tr key={c.case_id}>
                     <td className="num r">{c.case_id}</td>
-                    <td><Link to={`/cases/${c.case_id}`}>{c.title}</Link><div className="muted">{c.fir_no}, {c.citizen_name}</div></td>
+                    <td><Link to={`/cases/${c.case_id}`}>{c.title}</Link><div className="muted">{c.fir_no}, {c.citizen_name}</div><Flags items={c.flags} /></td>
                     <td><Tags category={c.category} severity={c.severity} /></td>
                     <td>{c.station}</td><td>{c.officer_name || 'Unassigned'}</td>
                     <td className="num">{c.date_opened}</td><td><Status value={c.status} /></td>
@@ -160,7 +198,7 @@ export function Case() {
   if (loading) return <Loading />;
   if (error) return <Failed error={error} retry={error.status === 404 ? undefined : reload} />;
 
-  const { case: c, evidence, linked, available, reports, notes, timeline, attachments, officers, editable, next_states, statements, arrests, court_dates, chargesheet, custody_actions } = data;
+  const { case: c, evidence, linked, available, reports, notes, timeline, attachments, officers, editable, next_states, statements, arrests, court_dates, chargesheet, custody_actions, flags } = data;
   const send = (path, body, ok, method = 'POST') => act(() => api(`/cases/${id}${path}`, { method, body }), ok);
   // reset the form once the write has gone through
   const sendFile = (no) => async (event) => {
@@ -197,6 +235,7 @@ export function Case() {
       <PageHead title={c.title} text={`${c.fir_no}, opened ${c.date_opened} at ${c.station}`}>
         <div className="head-actions"><Tags category={c.category} severity={c.severity} /><Status value={c.status} /><a className="btn btn--small" href={`/api/export/cases/${c.case_id}.pdf`}>Download PDF</a></div>
       </PageHead>
+      {flags.length > 0 && <div className="flash flash--error">Needs attention: <Flags items={flags} /></div>}
       {!editable && (
         <div className="flash">
           {c.status.startsWith('Closed') ? 'This case is closed and read-only.' : 'Only the assigned officer or an admin can change this case.'}

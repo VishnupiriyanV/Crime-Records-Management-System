@@ -243,3 +243,4 @@ html[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg
 .voice-heard { margin: 0; font-style: italic; }
 .voice-problem { color: var(--color-error); margin: 0; }
 .voice-result { margin: 0; font-weight: 600; }
+.flags { display: inline-flex; flex-wrap: wrap; gap: var(--space-2xs); margin-left: var(--space-xs); }
