@@ -318,7 +318,7 @@ export function Case() {
             )}
           </section>
 
-          <section className="panel">
+          <section className={`panel${statements.length ? '' : ' panel--compact'}`}>
             <h2>{t('Statements')}</h2>
             {statements.length === 0 && <p className="muted">{t('No statements recorded.')}</p>}
             {statements.map((x) => (
@@ -339,7 +339,7 @@ export function Case() {
             )}
           </section>
 
-          <section className="panel">
+          <section className={`panel${arrests.length ? '' : ' panel--compact'}`}>
             <h2>{t('Arrests')}</h2>
             {arrests.length ? (
               <div className="table-wrap"><table className="data">
@@ -398,7 +398,7 @@ export function Case() {
             )}
           </section>
 
-          <section className="panel">
+          <section className={`panel${reports.length ? '' : ' panel--compact'}`}>
             <h2>{t('Reports')}</h2>
             {reports.length === 0 && <p className="muted">{t('No reports written.')}</p>}
             {reports.map((r) => (
@@ -452,7 +452,7 @@ export function Case() {
             )}
           </section>
 
-          <section className="panel">
+          <section className={`panel${court_dates.length ? '' : ' panel--compact'}`}>
             <h2>{t('Court dates')}</h2>
             {court_dates.length === 0 && <p className="muted">{t(chargesheet ? 'No court dates set.' : 'Court dates can be set once the chargesheet is filed.')}</p>}
             {court_dates.map((d) => (
