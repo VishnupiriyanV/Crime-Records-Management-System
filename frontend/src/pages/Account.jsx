@@ -3,8 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api, withQuery } from '../api.js';
 import { useSession } from '../session.jsx';
 import { Empty, Failed, Field, Filters, formData, Loading, PageHead, useAct, useLoad } from '../ui.jsx';
+import { useT } from '../i18n.jsx';
 
 export function Profile() {
+  const t = useT();
   const { user, setSession } = useSession();
   const { data, error, loading, reload } = useLoad('/profile');
   const act = useAct();
@@ -17,7 +19,7 @@ export function Profile() {
   };
   return (
     <>
-      <PageHead title="Profile" text={`${user.email}, signed in as ${user.role}.`} />
+      <PageHead title="Profile" text={t('{email}, signed in as {role}.', { email: user.email, role: t(user.role) })} />
       <form className="panel form-narrow" onSubmit={save}>
         <Field label="Full name" id="name"><input id="name" name="name" defaultValue={user.name} required /></Field>
         {data.extra && (
@@ -32,13 +34,14 @@ export function Profile() {
         <Field label="Current password" id="current_password" hint="Only needed when you set a new password.">
           <input id="current_password" name="current_password" type="password" autoComplete="current-password" />
         </Field>
-        <button className="btn btn--primary" type="submit">Save changes</button>
+        <button className="btn btn--primary" type="submit">{t('Save changes')}</button>
       </form>
     </>
   );
 }
 
 export function Notifications() {
+  const t = useT();
   const { data, error, loading, reload } = useLoad('/notifications');
   const { refresh } = useSession();
   // opening the page marks everything as read on the server, so refresh the bell count
@@ -52,7 +55,7 @@ export function Notifications() {
             <ul className="trail">
               {data.items.map((n, i) => (
                 <li key={i}>
-                  <span>{n.link ? <Link to={n.link}>{n.message}</Link> : n.message}</span>
+                  <span>{n.link ? <Link to={n.link}>{t(n.message)}</Link> : t(n.message)}</span>
                   <span className="num muted">{n.created_at}</span>
                 </li>
               ))}
@@ -65,6 +68,7 @@ export function Notifications() {
 }
 
 export function Records() {
+  const t = useT();
   const [params] = useSearchParams();
   const { data, error, loading, reload } = useLoad(withQuery('/records', { q: params.get('q') || '' }));
   return (
@@ -73,27 +77,27 @@ export function Records() {
       <Filters>
         {(p) => (
           <>
-            <Field label="Search" id="q"><input id="q" name="q" defaultValue={p.get('q') || ''} placeholder="Name or area" /></Field>
-            <button className="btn" type="submit">Search</button>
+            <Field label="Search" id="q"><input id="q" name="q" defaultValue={p.get('q') || ''} placeholder={t('Name or area')} /></Field>
+            <button className="btn" type="submit">{t('Search')}</button>
           </>
         )}
       </Filters>
       {loading ? <Loading /> : error ? <Failed error={error} retry={reload} /> : (
         <div className="cols cols--even">
           <section className="panel">
-            <h2>Wanted persons</h2>
+            <h2>{t('Wanted persons')}</h2>
             {data.wanted.length ? (
               <div className="table-wrap"><table className="data">
-                <thead><tr><th>Name</th><th className="r">Age</th></tr></thead>
+                <thead><tr><th>{t('Name')}</th><th className="r">{t('Age')}</th></tr></thead>
                 <tbody>{data.wanted.map((w) => <tr key={w.name}><td>{w.name}</td><td className="num r">{w.age}</td></tr>)}</tbody>
               </table></div>
             ) : <Empty>No wanted persons match.</Empty>}
           </section>
           <section className="panel">
-            <h2>Police stations</h2>
+            <h2>{t('Police stations')}</h2>
             {data.stations.length ? (
               <div className="table-wrap"><table className="data">
-                <thead><tr><th>Station</th><th>Area covered</th></tr></thead>
+                <thead><tr><th>{t('Station')}</th><th>{t('Area covered')}</th></tr></thead>
                 <tbody>{data.stations.map((s) => <tr key={s.station_id}><td>{s.name}</td><td>{s.jurisdiction}</td></tr>)}</tbody>
               </table></div>
             ) : <Empty>No stations match.</Empty>}

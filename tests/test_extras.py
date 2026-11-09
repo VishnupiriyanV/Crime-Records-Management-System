@@ -326,3 +326,21 @@ def test_dictation_endpoint_needs_sign_in(make_client):
     asha = make_client("asha@t.test")
     got = asha.post("/api/complaints/dictation", json={"text": "my phone was hacked and money taken through upi"}).json()
     assert got["category"] == "Cybercrime"
+
+
+def test_tamil_and_hindi_accounts_give_category_and_date():
+    from datetime import date
+
+    from app.dictation import read_complaint
+
+    today = date(2026, 11, 9)
+    tamil = read_complaint("நேற்று என் பைக் திருடப்பட்டது", today)
+    assert tamil["category"] == "Theft" and tamil["incident_date"] == "2026-11-08"
+    hindi = read_complaint("परसों मेरे साथ मारपीट हुई", today)
+    assert hindi["category"] == "Assault" and hindi["incident_date"] == "2026-11-07"
+    assert read_complaint("3 दिन पहले मेरे घर में सेंध लगी", today)["category"] == "Burglary"
+    assert read_complaint("இன்று ஆன்லைன் மோசடி நடந்தது", today)["incident_date"] == "2026-11-09"
+    # the place is only read from English text
+    assert tamil["location"] == "" and hindi["description"].startswith("परसों")
+    # a short Hindi word inside a longer one is not a date
+    assert read_complaint("चोर घर से निकला", today)["incident_date"] is None

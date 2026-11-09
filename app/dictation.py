@@ -7,17 +7,27 @@ from datetime import date, timedelta
 
 from .constants import CATEGORIES
 
-# words that point at a category; the one with the most hits wins
+# words that point at a category; the one with the most hits wins. Tamil and Hindi words are matched inside the text,
+# since their endings change a word and a whole-word match would miss most of them.
 WORDS = {
-    "Theft": ["stole", "stolen", "theft", "snatch", "pickpocket", "robbed", "robbery", "missing phone", "lost my wallet"],
-    "Burglary": ["burglary", "break-in", "broke into", "broken into", "house was entered", "lock was broken"],
-    "Assault": ["attacked", "assault", "beat", "beaten", "punched", "slapped", "stabbed", "threatened", "fight"],
-    "Fraud": ["fraud", "cheated", "scam", "duped", "fake", "forged", "money was taken"],
-    "Cybercrime": ["hacked", "phishing", "otp", "online", "cyber", "upi", "social media", "password"],
-    "Vandalism": ["vandal", "damaged", "smashed", "scratched", "set fire", "graffiti"],
-    "Missing person": ["missing person", "went missing", "has not returned", "disappeared", "kidnap"],
-    "Domestic violence": ["domestic", "husband beat", "in-laws", "dowry", "my husband hits"],
-    "Traffic": ["accident", "hit and run", "rash driving", "collision", "drunk driving", "crashed"],
+    "Theft": ["stole", "stolen", "theft", "snatch", "pickpocket", "robbed", "robbery", "missing phone", "lost my wallet",
+              "திருட்டு", "திருடி", "திருடப்", "வழிப்பறி", "பறித்", "चोरी", "चुरा", "चोर", "छीन"],
+    "Burglary": ["burglary", "break-in", "broke into", "broken into", "house was entered", "lock was broken",
+                 "வீடு புகுந்து", "பூட்டை உடைத்து", "सेंध", "घर में घुस", "ताला तोड़"],
+    "Assault": ["attacked", "assault", "beat", "beaten", "punched", "slapped", "stabbed", "threatened", "fight",
+                "தாக்கி", "தாக்குதல்", "அடித்து", "மிரட்டி", "मारपीट", "हमला", "पीटा", "मारा", "धमकी"],
+    "Fraud": ["fraud", "cheated", "scam", "duped", "fake", "forged", "money was taken",
+              "மோசடி", "ஏமாற்றி", "ஏமாற்ற", "धोखा", "ठगी", "ठगा", "जालसाजी"],
+    "Cybercrime": ["hacked", "phishing", "otp", "online", "cyber", "upi", "social media", "password",
+                  "இணையம்", "ஹேக்", "சைபர்", "ஓடிபி", "ஆன்லைன்", "हैक", "साइबर", "ओटीपी", "ऑनलाइन", "फिशिंग"],
+    "Vandalism": ["vandal", "damaged", "smashed", "scratched", "set fire", "graffiti",
+                  "சேதப்படுத்", "உடைத்து", "தீ வைத்", "तोड़फोड़", "तोड़ दिया", "नुकसान", "आग लगा"],
+    "Missing person": ["missing person", "went missing", "has not returned", "disappeared", "kidnap",
+                       "காணவில்லை", "காணாமல்", "கடத்த", "लापता", "गुमशुदा", "गुम हो", "अपहरण"],
+    "Domestic violence": ["domestic", "husband beat", "in-laws", "dowry", "my husband hits",
+                          "குடும்ப வன்முறை", "வரதட்சணை", "கணவர் அடித்", "घरेलू हिंसा", "दहेज", "पति मारता"],
+    "Traffic": ["accident", "hit and run", "rash driving", "collision", "drunk driving", "crashed",
+                "விபத்து", "மோதி", "வாகனம் மோத", "दुर्घटना", "एक्सीडेंट", "टक्कर"],
 }
 
 MONTHS = [
@@ -50,14 +60,17 @@ def date_of(text, today=None):
     """The incident date if the speaker gave one, otherwise None."""
     today = today or date.today()
     low = text.lower()
-    if "day before yesterday" in low:
+    # short Hindi words are matched as whole words, or "kal" would be found inside "nikla" and the like
+    spoken = set(re.split(r"[\s,.।!?]+", low))
+    if "day before yesterday" in low or "முந்தாநாள்" in low or "நேற்று முன்தினம்" in low or "परसों" in spoken:
         return (today - timedelta(days=2)).isoformat()
-    if "yesterday" in low or "last night" in low:
+    # in Hindi "kal" can also mean tomorrow, but a complaint is about something that already happened
+    if "yesterday" in low or "last night" in low or "நேற்று" in low or "कल" in spoken:
         return (today - timedelta(days=1)).isoformat()
-    found = re.search(r"\b(\d{1,2}) days? ago\b", low)
+    found = re.search(r"\b(\d{1,2}) days? ago\b", low) or re.search(r"(\d{1,2})\s*(?:நாட்களுக்கு முன்|நாள் முன்பு|दिन पहले)", low)
     if found:
         return (today - timedelta(days=int(found.group(1)))).isoformat()
-    if re.search(r"\b(today|this morning|this afternoon|this evening|tonight)\b", low):
+    if re.search(r"\b(today|this morning|this afternoon|this evening|tonight)\b", low) or "இன்று" in low or "आज" in spoken:
         return today.isoformat()
 
     # written dates are read the Indian way, day first

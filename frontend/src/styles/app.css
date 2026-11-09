@@ -244,3 +244,6 @@ html[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg
 .voice-problem { color: var(--color-error); margin: 0; }
 .voice-result { margin: 0; font-weight: 600; }
 .flags { display: inline-flex; flex-wrap: wrap; gap: var(--space-2xs); margin-left: var(--space-xs); }
+.lang-pick { width: auto; padding: var(--space-3xs) var(--space-xs); font-size: var(--text-sm); margin-left: auto; }
+.who ~ .lang-pick { margin-left: var(--space-sm); }
+.lang-pick + .theme-btn { margin-left: var(--space-sm); }

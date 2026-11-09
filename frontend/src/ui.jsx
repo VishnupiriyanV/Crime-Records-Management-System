@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from './api.js';
 import { useSession } from './session.jsx';
+import { useT } from './i18n.jsx';
 
 // loads a GET endpoint and exposes reload; error and loading are states the page must draw
 export function useLoad(path) {
@@ -38,27 +39,31 @@ export function formData(event) {
 }
 
 export function useTitle(title) {
-  useEffect(() => { document.title = `${title} | CRMS`; }, [title]);
+  const t = useT();
+  useEffect(() => { document.title = `${t(title)} | CRMS`; }, [title, t]);
 }
 
 export function PageHead({ title, text, children }) {
+  const t = useT();
   useTitle(title);
-  return <div className="page-head"><div><h1>{title}</h1>{text && <p>{text}</p>}</div>{children}</div>;
+  return <div className="page-head"><div><h1>{t(title)}</h1>{text && <p>{t(text)}</p>}</div>{children}</div>;
 }
 
 export function Crumbs({ trail, here }) {
+  const t = useT();
   return (
     <div className="crumbs">
-      {trail.map(([label, to]) => <span key={to}><Link to={to}>{label}</Link> / </span>)}{here}
+      {trail.map(([label, to]) => <span key={to}><Link to={to}>{t(label)}</Link> / </span>)}{here}
     </div>
   );
 }
 
 export function Status({ value }) {
+  const t = useT();
   const kind = value === 'Rejected' ? 'bad'
     : ['Closed (Resolved)', 'Verified'].includes(value) ? 'good'
     : ['Under Investigation', 'Chargesheet Filed', 'Filed'].includes(value) ? 'open' : '';
-  return <span className={`badge ${kind ? `badge--${kind}` : ''}`}>{value}</span>;
+  return <span className={`badge ${kind ? `badge--${kind}` : ''}`}>{t(value)}</span>;
 }
 
 export function Loading() {
@@ -66,29 +71,32 @@ export function Loading() {
 }
 
 export function Failed({ error, retry }) {
+  const t = useT();
   return (
     <div className="panel">
       <div className="empty">
-        <p>{error.message}</p>
-        {retry && <button className="btn" onClick={retry}>Try again</button>}
+        <p>{t(error.message)}</p>
+        {retry && <button className="btn" onClick={retry}>{t('Try again')}</button>}
       </div>
     </div>
   );
 }
 
 export function Empty({ children, action }) {
-  return <div className="empty"><p>{children}</p>{action}</div>;
+  const t = useT();
+  return <div className="empty"><p>{typeof children === 'string' ? t(children) : children}</p>{action}</div>;
 }
 
 export function Pager({ page, pages, total }) {
+  const t = useT();
   const [params, setParams] = useSearchParams();
   const go = (p) => { const next = new URLSearchParams(params); next.set('page', p); setParams(next); };
   return (
     <div className="pager">
-      <span>{total} result{total === 1 ? '' : 's'}, page {page} of {pages}</span>
+      <span>{t(total === 1 ? '{n} result, page {page} of {pages}' : '{n} results, page {page} of {pages}', { n: total, page, pages })}</span>
       <div>
-        {page > 1 && <button className="btn btn--small" onClick={() => go(page - 1)}>Previous</button>}
-        {page < pages && <button className="btn btn--small" onClick={() => go(page + 1)}>Next</button>}
+        {page > 1 && <button className="btn btn--small" onClick={() => go(page - 1)}>{t('Previous')}</button>}
+        {page < pages && <button className="btn btn--small" onClick={() => go(page + 1)}>{t('Next')}</button>}
       </div>
     </div>
   );
@@ -107,11 +115,12 @@ export function Filters({ children }) {
 }
 
 export function Field({ label, id, children, hint }) {
+  const t = useT();
   return (
     <div className="field">
-      <label htmlFor={id}>{label}</label>
+      <label htmlFor={id}>{t(label)}</label>
       {children}
-      {hint && <small>{hint}</small>}
+      {hint && <small>{t(hint)}</small>}
     </div>
   );
 }
@@ -134,7 +143,8 @@ function PreviewBody({ file, url }) {
 export function Attachments({ items }) {
   const dialog = useRef(null);
   const [shown, setShown] = useState(null);
-  if (!items.length) return <p className="muted">No files attached.</p>;
+  const t = useT();
+  if (!items.length) return <p className="muted">{t('No files attached.')}</p>;
 
   const open = (file) => { setShown(file); dialog.current?.showModal(); };
   const close = () => { dialog.current?.close(); setShown(null); };
@@ -147,7 +157,7 @@ export function Attachments({ items }) {
           <li key={a.attachment_id}>
             <span>
               {kindOf(a.content_type) ? <button className="link-btn" onClick={() => open(a)}>{a.filename}</button> : a.filename}
-              {' '}<a className="muted" href={url(a)}>Download</a>
+              {' '}<a className="muted" href={url(a)}>{t('Download')}</a>
             </span>
             <span className="num muted">{sizeLabel(a.size)}</span>
           </li>
@@ -156,7 +166,7 @@ export function Attachments({ items }) {
       <dialog ref={dialog} className="preview" onClose={() => setShown(null)} onClick={(e) => e.target === dialog.current && close()}>
         {shown && (
           <>
-            <div className="preview-head"><b>{shown.filename}</b><button className="link-btn" onClick={close}>Close</button></div>
+            <div className="preview-head"><b>{shown.filename}</b><button className="link-btn" onClick={close}>{t('Close')}</button></div>
             <PreviewBody file={shown} url={`${url(shown)}?inline=1`} />
           </>
         )}
@@ -177,19 +187,21 @@ export function SortTh({ id, children, className }) {
     next.delete('page');
     setParams(next);
   };
+  const t = useT();
   return (
     <th className={className} aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}>
-      <button className="sort-btn" onClick={click}>{children}<span aria-hidden="true">{active ? (dir === 'asc' ? ' \u2191' : ' \u2193') : ''}</span></button>
+      <button className="sort-btn" onClick={click}>{typeof children === 'string' ? t(children) : children}<span aria-hidden="true">{active ? (dir === 'asc' ? ' \u2191' : ' \u2193') : ''}</span></button>
     </th>
   );
 }
 
 // a link to a server-built file (CSV or PDF) that keeps the list's current filters
 export function Download({ path, params, children }) {
+  const t = useT();
   const query = {};
   for (const key of ['q', 'status', 'mine', 'wanted', 'sort', 'dir']) if (params?.get(key)) query[key] = params.get(key);
   const href = `/api${path}${Object.keys(query).length ? `?${new URLSearchParams(query)}` : ''}`;
-  return <a className="btn btn--small" href={href}>{children}</a>;
+  return <a className="btn btn--small" href={href}>{typeof children === 'string' ? t(children) : children}</a>;
 }
 
 // the crime type and how serious it was judged to be
@@ -200,10 +212,11 @@ export function Flags({ items }) {
 }
 
 export function Tags({ category, severity }) {
+  const t = useT();
   return (
     <span className="tags">
-      <span className="badge">{category}</span>
-      <span className={`badge ${severity === 'High' ? 'badge--bad' : ''}`}>{severity}</span>
+      <span className="badge">{t(category)}</span>
+      <span className={`badge ${severity === 'High' ? 'badge--bad' : ''}`}>{t(severity)}</span>
     </span>
   );
 }
@@ -220,6 +233,7 @@ const STAGES = ['Filed', 'Verified', 'Case opened', 'Resolved'];
 
 // where a complaint is on its way from filing to a closed case
 export function Progress({ complaint, kase }) {
+  const t = useT();
   let reached = 0;
   if (complaint.status === 'Verified') reached = 1;
   if (kase) reached = kase.status === 'Closed (Resolved)' || kase.status === 'Closed (Unresolved)' ? 3 : 2;
@@ -227,10 +241,10 @@ export function Progress({ complaint, kase }) {
   const stages = rejected ? ['Filed', 'Rejected'] : kase?.status === 'Closed (Unresolved)' ? ['Filed', 'Verified', 'Case opened', 'Closed, unresolved'] : STAGES;
   const last = rejected ? 1 : reached;
   return (
-    <ol className="progress" aria-label="Complaint progress">
+    <ol className="progress" aria-label={t('Complaint progress')}>
       {stages.map((label, i) => (
         <li key={label} className={i < last ? 'done' : i === last ? 'now' : ''} aria-current={i === last ? 'step' : undefined}>
-          <span className={`dot ${rejected && i === 1 ? 'dot--bad' : ''}`} />{label}
+          <span className={`dot ${rejected && i === 1 ? 'dot--bad' : ''}`} />{t(label)}
         </li>
       ))}
     </ol>

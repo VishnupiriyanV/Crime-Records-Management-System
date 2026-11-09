@@ -1,27 +1,32 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from './api';
+import { useLang, useT } from './i18n.jsx';
 
 // Chrome, Edge and Safari have this; Firefox does not, and there the buttons stay hidden
 const Recognition = typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
 
-const LANGUAGES = [['en-IN', 'English'], ['ta-IN', 'Tamil'], ['hi-IN', 'Hindi']];
+const LANGUAGES = [['en-IN', 'English'], ['ta-IN', 'தமிழ்'], ['hi-IN', 'हिन्दी']];
+// until a spoken language is picked, follow the language the page is shown in
+const FOLLOWS = { en: 'en-IN', ta: 'ta-IN', hi: 'hi-IN' };
 
 function savedLanguage() {
-  try { return localStorage.getItem('crms-voice') || 'en-IN'; } catch { return 'en-IN'; }
+  try { return localStorage.getItem('crms-voice') || ''; } catch { return ''; }
 }
 
 function useLanguage() {
-  const [lang, setLang] = useState(savedLanguage);
+  const { lang: shown } = useLang();
+  const [chosen, setChosen] = useState(savedLanguage);
   const change = (value) => {
-    setLang(value);
+    setChosen(value);
     try { localStorage.setItem('crms-voice', value); } catch { /* the choice just is not remembered */ }
   };
-  return [lang, change];
+  return [chosen || FOLLOWS[shown], change];
 }
 
 function LanguagePick({ lang, onChange, id }) {
+  const t = useT();
   return (
-    <select id={id} className="voice-lang" aria-label="Spoken language" value={lang} onChange={(e) => onChange(e.target.value)}>
+    <select id={id} className="voice-lang" aria-label={t('Spoken language')} value={lang} onChange={(e) => onChange(e.target.value)}>
       {LANGUAGES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
     </select>
   );
@@ -65,6 +70,7 @@ function useListener(lang, onText, onDone) {
 
 // a small mic button for one text box; what is said is added after what is already typed
 export function Dictate({ target }) {
+  const t = useT();
   const [lang, setLang] = useLanguage();
   const before = useRef('');
   const { listening, problem, start, stop } = useListener(
@@ -85,11 +91,11 @@ export function Dictate({ target }) {
   return (
     <div className="voice-row">
       <button type="button" className={`btn btn--small${listening ? ' btn--danger' : ''}`} onClick={toggle}>
-        {listening ? 'Stop' : 'Dictate'}
+        {t(listening ? 'Stop' : 'Dictate')}
       </button>
       <LanguagePick id={`lang-${target}`} lang={lang} onChange={setLang} />
-      <small className="muted">Uses your browser's speech service.</small>
-      {problem && <small className="voice-problem">{problem}</small>}
+      <small className="muted">{t("Uses your browser's speech service.")}</small>
+      {problem && <small className="voice-problem">{t(problem)}</small>}
     </div>
   );
 }
@@ -104,6 +110,7 @@ function fillEmpty(id, value, empty = '') {
 
 // speak the whole complaint once; the server sorts the words into the form
 export function SpeakComplaint() {
+  const t = useT();
   const [lang, setLang] = useLanguage();
   const [heard, setHeard] = useState('');
   const [result, setResult] = useState('');
@@ -123,10 +130,10 @@ export function SpeakComplaint() {
         if (fillEmpty('incident_date', got.incident_date)) filled.push('date');
         if (got.category && got.category !== 'Other' && fillEmpty('category', got.category, 'Other')) filled.push('category');
         setResult(filled.length
-          ? `Filled from your voice: ${filled.join(', ')}. Check every field before you submit.`
-          : 'Nothing was filled because those boxes already have text.');
+          ? t('Filled from your voice: {fields}. Check every field before you submit.', { fields: filled.map((f) => t(f)).join(', ') })
+          : t('Nothing was filled because those boxes already have text.'));
       } catch (err) {
-        setResult(`Could not read that: ${err.message}`);
+        setResult(t('Could not read that: {error}', { error: t(err.message) }));
       }
     },
   );
@@ -142,16 +149,16 @@ export function SpeakComplaint() {
     <div className="voice-panel" aria-live="polite">
       <div className="voice-row">
         <button type="button" className={`btn${listening ? ' btn--danger' : ' btn--primary'}`} onClick={toggle}>
-          {listening ? 'Stop and fill the form' : 'Speak your complaint'}
+          {t(listening ? 'Stop and fill the form' : 'Speak your complaint')}
         </button>
         <LanguagePick id="voice-lang" lang={lang} onChange={setLang} />
       </div>
       <small className="muted">
-        Say what happened, where and when. Your browser's speech service turns it into text, and it may send the audio to its maker.
-        {!english && ' Tamil and Hindi are written out as you speak them, but only English is sorted into the category, date and place.'}
+        {t("Say what happened, where and when. Your browser's speech service turns it into text, and it may send the audio to its maker.")}
+        {!english && ` ${t('In Tamil and Hindi only the category and date are filled in; the place stays empty.')}`}
       </small>
       {heard && <p className="voice-heard">{heard}</p>}
-      {problem && <p className="voice-problem">{problem}</p>}
+      {problem && <p className="voice-problem">{t(problem)}</p>}
       {result && <p className="voice-result">{result}</p>}
     </div>
   );

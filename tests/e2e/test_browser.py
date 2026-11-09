@@ -186,3 +186,50 @@ def test_similar_complaint_is_flagged_before_filing(page):
     expect(page.locator(".voice-panel[role=alert]")).to_contain_text("You may have filed this already")
     page.click("text=This is a different incident")
     expect(page).to_have_url(re.compile(r"/complaints/\d+$"))
+
+
+def test_forms_in_hindi_and_tamil(page):
+    page.goto(page.base + "/login")
+    page.select_option(".lang-pick", "ta")
+    expect(page.locator("h1")).to_have_text("உள்நுழை")
+    expect(page.locator("html")).to_have_attribute("lang", "ta")
+    page.select_option(".lang-pick", "hi")
+    expect(page.locator("h1")).to_have_text("साइन इन करें")
+    page.fill("#email", "asha@e2e.test")
+    page.fill("#password", "password123")
+    page.click("button[type=submit]")
+    expect(page.locator(".who")).to_be_visible()
+
+    page.goto(page.base + "/complaints/new")  # a full reload keeps the chosen language
+    expect(page.locator("h1")).to_have_text("शिकायत दर्ज करें")
+    expect(page.locator("label[for=category]")).to_have_text("श्रेणी")
+    expect(page.locator("#category option[value=Theft]")).to_have_text("चोरी")
+
+    # the form still sends the English values the server expects
+    page.fill("#title", "दुकान का ताला टूटा")
+    page.fill("#description", "रात में दुकान का ताला तोड़कर सामान ले गए")
+    page.fill("#location", "मुख्य बाज़ार")
+    page.fill("#incident_date", "2026-08-02")
+    page.select_option("#category", "Burglary")
+    page.click("text=शिकायत जमा करें")
+    expect(page).to_have_url(re.compile(r"/complaints/\d+$"))
+    expect(page.locator(".page-head .badge").last).to_have_text("दर्ज")
+    expect(page.locator("h2").first).to_have_text("शिकायत")
+
+
+def test_tamil_and_hindi_fit_on_a_phone(page):
+    page.set_viewport_size({"width": 390, "height": 800})
+    page.goto(page.base + "/login")
+    for code in ("ta", "hi"):
+        page.select_option(".lang-pick", code)
+        sign_in_needed = page.locator("#email").count()
+        if sign_in_needed:
+            page.fill("#email", "asha@e2e.test")
+            page.fill("#password", "password123")
+            page.click("button[type=submit]")
+            expect(page.locator(".who")).to_be_visible()
+        for path in ("/complaints", "/complaints/new", "/notifications", "/records", "/profile"):
+            page.goto(page.base + path)
+            page.wait_for_selector("h1")
+            overflow = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
+            assert overflow <= 0, f"{path} in {code} scrolls sideways by {overflow}px"

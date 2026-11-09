@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { api } from './api.js';
 import { useSession } from './session.jsx';
+import { LANGUAGES, useLang, useT } from './i18n.jsx';
 
 const links = {
   citizen: [['/complaints', 'My complaints'], ['/complaints/new', 'File a complaint'], ['/records', 'Public records']],
@@ -28,6 +29,8 @@ function isDark() {
 
 export default function Layout() {
   const [dark, setDark] = useState(isDark);
+  const t = useT();
+  const { lang, setLang } = useLang();
   const { user, unread, flash, setSession } = useSession();
   const navigate = useNavigate();
   const searchBox = useRef(null);
@@ -81,46 +84,49 @@ export default function Layout() {
           <Link className="brand" to="/">CRMS</Link>
           {user && (
             <>
-              <nav className="nav" aria-label="Main">
+              <nav className="nav" aria-label={t('Main')}>
                 {links[user.role].map(([to, label]) => (
-                  <NavLink key={to} to={to} end={to === '/complaints'}>{label}</NavLink>
+                  <NavLink key={to} to={to} end={to === '/complaints'}>{t(label)}</NavLink>
                 ))}
               </nav>
               <form className="search" role="search" onSubmit={search}>
-                <input ref={searchBox} name="q" type="search" placeholder="Search ( / )" aria-label="Search" autoComplete="off" />
+                <input ref={searchBox} name="q" type="search" placeholder={t('Search ( / )')} aria-label={t('Search')} autoComplete="off" />
               </form>
               <div className="who">
-                <Link className="bell" to="/notifications">Alerts{unread > 0 && <b>{unread}</b>}</Link>
+                <Link className="bell" to="/notifications">{t('Alerts')}{unread > 0 && <b>{unread}</b>}</Link>
                 <Link to="/profile">{user.name}</Link>
-                <button className="link-btn" onClick={signOut}>Sign out</button>
+                <button className="link-btn" onClick={signOut}>{t('Sign out')}</button>
               </div>
             </>
           )}
-          <button className="link-btn theme-btn" onClick={toggleTheme} aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}>
-            {dark ? 'Light' : 'Dark'}
+          <select className="lang-pick" aria-label={t('Language')} value={lang} onChange={(e) => setLang(e.target.value)}>
+            {LANGUAGES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+          </select>
+          <button className="link-btn theme-btn" onClick={toggleTheme} aria-label={t(dark ? 'Switch to light mode' : 'Switch to dark mode')}>
+            {t(dark ? 'Light' : 'Dark')}
           </button>
         </div>
       </header>
       <main>
         <div className="shell">
-          {flash && <div className={`flash ${flash.type === 'error' ? 'flash--error' : ''}`} role={flash.type === 'error' ? 'alert' : 'status'}>{flash.text}</div>}
+          {flash && <div className={`flash ${flash.type === 'error' ? 'flash--error' : ''}`} role={flash.type === 'error' ? 'alert' : 'status'}>{t(flash.text)}</div>}
           <Outlet />
         </div>
       </main>
       <footer>
         <div className="shell">
-          Crime Records Management System, DBMS lab project
-          {user && <button className="link-btn" onClick={() => help.current?.showModal()}>Keyboard shortcuts</button>}
+          {t('Crime Records Management System, DBMS lab project')}
+          {user && <button className="link-btn" onClick={() => help.current?.showModal()}>{t('Keyboard shortcuts')}</button>}
         </div>
       </footer>
       <dialog ref={help} className="preview help" onClick={(e) => e.target === help.current && help.current.close()}>
-        <div className="preview-head"><b>Keyboard shortcuts</b><button className="link-btn" onClick={() => help.current.close()}>Close</button></div>
+        <div className="preview-head"><b>{t('Keyboard shortcuts')}</b><button className="link-btn" onClick={() => help.current.close()}>{t('Close')}</button></div>
         {user && (
           <dl className="facts">
-            <dt><kbd>/</kbd></dt><dd>Search</dd>
-            <dt><kbd>?</kbd></dt><dd>Show this list</dd>
+            <dt><kbd>/</kbd></dt><dd>{t('Search')}</dd>
+            <dt><kbd>?</kbd></dt><dd>{t('Show this list')}</dd>
             {Object.keys(jumps[user.role]).map((k) => (
-              <Fragment key={k}><dt><kbd>g</kbd> <kbd>{k}</kbd></dt><dd>{user.role === 'citizen' && k === 'r' ? 'Public records' : jumpLabels[k]}</dd></Fragment>
+              <Fragment key={k}><dt><kbd>g</kbd> <kbd>{k}</kbd></dt><dd>{t(user.role === 'citizen' && k === 'r' ? 'Public records' : jumpLabels[k])}</dd></Fragment>
             ))}
           </dl>
         )}

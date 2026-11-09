@@ -52,6 +52,14 @@ The tables are created on first start from `app/schemas/<database>.sql`. A datab
 
 Other settings, all optional on a development machine: `MONGO_URL` (default `mongodb://localhost:27017`), `MONGO_DB` (default `crms`), `CRMS_SECRET` (session signing key).
 
+## Tamil and Hindi
+
+The language menu in the top bar switches the screens to Tamil or Hindi and remembers the choice. Translated: the menu, sign in and register, profile, alerts, public records, filing a complaint, the complaint page and its progress, statuses, severities, crime types, the voice buttons and the alerts about a complaint. The staff screens (dashboard, cases, criminals, reports, users) stay in English, and so do error messages from the server and the browser's own file and date controls.
+
+The words live in `frontend/src/lang/ta.js` and `hi.js`, with the English text as the key. A string with no entry shows in English, so a missing translation never breaks a page. To translate another screen, wrap its text in `t('...')` from `useT()` and add the entry to both files. The translations were written without a native speaker checking them, so have someone who reads Tamil and Hindi review the wording before real use, especially legal terms such as the chargesheet and the case statuses.
+
+Speaking a complaint in Tamil or Hindi fills the description, and the category and date when it recognises the words (`app/dictation.py`); the place is only read from English.
+
 ## Overdue flags and duplicates
 
 Staff see red flags where work has waited too long, and the dashboard has a **Needs attention** panel with the counts. The limits are in `app/overdue.py`: a complaint unreviewed for 2 days, an open case with no officer for 3 days, an open case with no activity for 14 days (evidence, statements, arrests, court dates, files, status changes and reports all count as activity), and a court date that has passed with no outcome. High severity waits half as long. Officers see their own cases; admins see everything.
