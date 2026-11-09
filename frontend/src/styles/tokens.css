@@ -1,60 +1,43 @@
 :root {
   color-scheme: light;
   --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
-  --text-xs: 0.8125rem; --text-sm: 0.9375rem; --text-md: 1.0625rem; --text-lg: 1.25rem; --text-xl: 1.5rem; --text-2xl: 1.75rem; --text-3xl: 2rem;
-  --text-display-s: 1.5rem; --text-display: 1.5rem; --text-section: 1.125rem; --text-title: 1rem; --text-lead: 1rem;
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --dur-micro: 120ms; --dur-short: 200ms; --dur-long: 360ms;
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+  --color-error: oklch(52% 0.19 27); --color-success: oklch(50% 0.12 150);
   --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
   --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
-
-  /* white sheet, black ink, one red plane; a faint blue construction grid shows through */
-  --color-paper: #ffffff; --color-paper-2: #f3f4f8; --color-paper-3: #e6e8f0;
-  --color-sheet: #ffffff;
-  --color-ink: #111111; --color-ink-2: #2a2a30; --color-muted: #595d6a;
-  --color-rule: #d3d6df; --color-rule-2: #111111;
-  --color-edge: #111111; --color-grid: rgb(26 35 126 / 0.09);
-  --color-accent: #111111; --color-accent-2: #c8102e; --color-accent-ink: #ffffff; --color-focus: #111111;
-  --color-red: #c8102e; --color-red-ink: #ffffff;
-  --color-error: #c8102e; --color-success: #00693c; --color-warn: #8a5a00;
-  --color-error-tint: #fde8eb; --color-success-tint: #e1f3e9; --color-open-tint: #eef0f8;
-  --color-shell: #ffffff; --color-shell-ink: #111111;
-
-  --font-display: "Noto Sans", "Noto Sans Tamil", "Noto Sans Devanagari", system-ui, sans-serif;
-  --font-body: "Noto Sans", "Noto Sans Tamil", "Noto Sans Devanagari", system-ui, sans-serif;
-  --font-outlier: "Noto Sans Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  --radius-card: 0; --radius-pill: 0; --rule-hair: 1px; --rule-bar: 2px;
-  --shadow-card: none;
-  --tracking-display: -0.01em; --display-weight: 700;
-  --cell: 24px;
+  --color-paper: oklch(84% 0.012 245); --color-paper-2: oklch(81% 0.012 245); --color-paper-3: oklch(77% 0.012 245);
+  --color-ink: oklch(16% 0.020 245); --color-ink-2: oklch(24% 0.018 245); --color-muted: oklch(38% 0.016 245);
+  --color-rule: oklch(73% 0.013 240); --color-rule-2: oklch(32% 0.018 240);
+  --color-accent: oklch(45% 0.180 350); --color-accent-2: oklch(37% 0.160 350); --color-accent-ink: oklch(97% 0.006 245); --color-focus: oklch(46% 0.190 350);
+  --color-sheet: oklch(93.5% 0.008 245);
+  --font-display: "Hanken Grotesk", "Noto Sans Tamil", "Noto Sans Devanagari", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Newsreader", "Noto Sans Tamil", "Noto Sans Devanagari", ui-serif, Georgia, serif;
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-card: 0; --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px; --shadow-card: none;
+  --tracking-display: -0.02em; --display-weight: 600;
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --color-paper: #0e0e0f; --color-paper-2: #1c1c1e; --color-paper-3: #26262a;
-  --color-sheet: #151516;
-  --color-ink: #f2f2f3; --color-ink-2: #d6d6d9; --color-muted: #a2a2a9;
-  --color-rule: #34343a; --color-rule-2: #f2f2f3;
-  --color-edge: #8e8e96; --color-grid: rgb(255 255 255 / 0.055);
-  --color-accent: #f2f2f3; --color-accent-2: #ff4d5e; --color-accent-ink: #0e0e0f; --color-focus: #f2f2f3;
-  --color-red: #ff4d5e; --color-red-ink: #0e0e0f;
-  --color-error: #ff6b78; --color-success: #4cd38a; --color-warn: #e8b04a;
-  --color-error-tint: #3a191e; --color-success-tint: #14301f; --color-open-tint: #222226;
-  --color-shell: #0e0e0f; --color-shell-ink: #f2f2f3;
+  --color-paper: oklch(20% 0.014 245); --color-paper-2: oklch(23% 0.014 245); --color-paper-3: oklch(27% 0.014 245);
+  --color-ink: oklch(93% 0.008 245); --color-ink-2: oklch(86% 0.010 245); --color-muted: oklch(71% 0.014 245);
+  --color-rule: oklch(34% 0.014 240); --color-rule-2: oklch(72% 0.014 240);
+  --color-accent: oklch(72% 0.150 350); --color-accent-2: oklch(79% 0.130 350); --color-accent-ink: oklch(18% 0.020 245); --color-focus: oklch(76% 0.150 350);
+  --color-sheet: oklch(24% 0.014 245);
+  --color-error: oklch(72% 0.16 27); --color-success: oklch(75% 0.12 150);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --color-paper: #0e0e0f; --color-paper-2: #1c1c1e; --color-paper-3: #26262a;
-    --color-sheet: #151516;
-    --color-ink: #f2f2f3; --color-ink-2: #d6d6d9; --color-muted: #a2a2a9;
-    --color-rule: #34343a; --color-rule-2: #f2f2f3;
-    --color-edge: #8e8e96; --color-grid: rgb(255 255 255 / 0.055);
-    --color-accent: #f2f2f3; --color-accent-2: #ff4d5e; --color-accent-ink: #0e0e0f; --color-focus: #f2f2f3;
-    --color-red: #ff4d5e; --color-red-ink: #0e0e0f;
-    --color-error: #ff6b78; --color-success: #4cd38a; --color-warn: #e8b04a;
-    --color-error-tint: #3a191e; --color-success-tint: #14301f; --color-open-tint: #222226;
-    --color-shell: #0e0e0f; --color-shell-ink: #f2f2f3;
+    --color-paper: oklch(20% 0.014 245); --color-paper-2: oklch(23% 0.014 245); --color-paper-3: oklch(27% 0.014 245);
+    --color-ink: oklch(93% 0.008 245); --color-ink-2: oklch(86% 0.010 245); --color-muted: oklch(71% 0.014 245);
+    --color-rule: oklch(34% 0.014 240); --color-rule-2: oklch(72% 0.014 240);
+    --color-accent: oklch(72% 0.150 350); --color-accent-2: oklch(79% 0.130 350); --color-accent-ink: oklch(18% 0.020 245); --color-focus: oklch(76% 0.150 350);
+    --color-sheet: oklch(24% 0.014 245);
+    --color-error: oklch(72% 0.16 27); --color-success: oklch(75% 0.12 150);
   }
 }

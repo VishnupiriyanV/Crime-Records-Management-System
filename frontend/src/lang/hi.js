@@ -503,4 +503,6 @@ export default {
   'never': 'कभी नहीं',
   'all': 'सभी',
   'Choose a status': 'स्थिति चुनें',
+  'Choose an officer': 'अधिकारी चुनें',
+  'No officers available': 'कोई अधिकारी उपलब्ध नहीं',
 };

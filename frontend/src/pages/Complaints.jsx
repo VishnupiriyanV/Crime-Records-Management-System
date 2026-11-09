@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, upload, withQuery } from '../api.js';
 import { MiniMap, PinPicker } from '../MapView.jsx';
 import { useSession } from '../session.jsx';
-import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Flags, Progress, SortTh, Plane, Status, Tags, useAct, useLoad } from '../ui.jsx';
+import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Flags, Progress, SortTh, Status, Tags, useAct, useLoad } from '../ui.jsx';
 import { Dictate, SpeakComplaint } from '../voice.jsx';
 import { useT } from '../i18n.jsx';
 
@@ -239,7 +239,7 @@ export function Complaint() {
   return (
     <>
       <Crumbs trail={[['Complaints', '/complaints']]} here={t('No. {id}', { id: c.complaint_id })} />
-      <PageHead title={c.title} text={t('{fir}, filed by {name} on {date}', { fir: c.fir_no, name: c.citizen_name, date: c.date_filed })}><div className="head-actions"><Tags category={c.category} severity={c.severity} />{kase ? <Plane value={kase.status} date={kase.date_opened} /> : <Plane value={c.status} date={[...history].reverse().find((h) => h.new_status === c.status)?.changed_at || c.date_filed} />}</div></PageHead>
+      <PageHead title={c.title} text={t('{fir}, filed by {name} on {date}', { fir: c.fir_no, name: c.citizen_name, date: c.date_filed })}><div className="head-actions"><Tags category={c.category} severity={c.severity} /><Status value={c.status} /></div></PageHead>
       {flags && flags.length > 0 && <div className="flash flash--error">{t('Needs attention:')}{' '}<Flags items={flags} /></div>}
       <Progress complaint={c} kase={kase} />
 
@@ -355,7 +355,7 @@ export function Complaint() {
             <ul className="trail">
               {history.map((h, i) => (
                 <li key={i}>
-                  <span><Plane compact value={h.new_status} />{h.who && <span className="muted"> {t('by {who}', { who: h.who })}</span>}</span>
+                  <span>{h.new_status}{h.who && <span className="muted"> {t('by {who}', { who: h.who })}</span>}</span>
                   <span className="num muted">{h.changed_at.slice(0, 10)}</span>
                 </li>
               ))}

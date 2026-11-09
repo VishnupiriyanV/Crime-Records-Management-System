@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from './api.js';
 import { useSession } from './session.jsx';
-import { useLang, useT } from './i18n.jsx';
+import { useT } from './i18n.jsx';
 
 // loads a GET endpoint and exposes reload; error and loading are states the page must draw
 export function useLoad(path) {
@@ -64,23 +64,6 @@ export function Status({ value }) {
     : ['Closed (Resolved)', 'Verified'].includes(value) ? 'good'
     : ['Under Investigation', 'Chargesheet Filed', 'Filed'].includes(value) ? 'open' : '';
   return <span className={`badge ${kind ? `badge--${kind}` : ''}`}>{t(value)}</span>;
-}
-
-// the current status of a record as a flat plane with its date
-export function Plane({ value, date, compact }) {
-  const t = useT();
-  const { lang } = useLang();
-  const kind = value === 'Rejected' ? 'bad'
-    : ['Under Investigation', 'Chargesheet Filed', 'Filed'].includes(value) ? 'open'
-    : ['Closed (Resolved)', 'Verified'].includes(value) ? 'good' : '';
-  const day = new Date(`${String(date).slice(0, 10)}T00:00:00`);
-  const shown = compact || Number.isNaN(day.getTime()) ? '' : day.toLocaleDateString(lang === 'en' ? 'en-IN' : `${lang}-IN`, { day: '2-digit', month: 'short', year: 'numeric' });
-  return (
-    <span className={`plane ${kind ? `plane--${kind}` : ''}${compact ? ' plane--compact' : ''}`}>
-      <span className="plane-status">{t(value)}</span>
-      {shown && <span className="plane-date">{shown}</span>}
-    </span>
-  );
 }
 
 export function Loading() {
@@ -277,7 +260,7 @@ export function Timeline({ events }) {
       {events.map((e, i) => (
         <li key={i} className={`timeline-${e.kind}`}>
           <span className="num muted">{e.at.slice(0, 16)}</span>
-          <span>{e.status ? <><Plane compact value={e.status} /><span className="visually-hidden">{e.text}</span></> : e.text}{e.who && <span className="muted"> {t('by {who}', { who: e.who })}</span>}</span>
+          <span>{e.text}{e.who && <span className="muted"> {t('by {who}', { who: e.who })}</span>}</span>
         </li>
       ))}
     </ol>

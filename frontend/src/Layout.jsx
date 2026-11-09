@@ -3,7 +3,6 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { api } from './api.js';
 import { useSession } from './session.jsx';
 import { LANGUAGES, useLang, useT } from './i18n.jsx';
-import { watchTables } from './labels.js';
 
 const links = {
   citizen: [['/complaints', 'My complaints'], ['/complaints/new', 'File a complaint'], ['/records', 'Public records']],
@@ -36,8 +35,6 @@ export default function Layout() {
   const navigate = useNavigate();
   const searchBox = useRef(null);
   const help = useRef(null);
-  const page = useRef(null);
-  useEffect(() => watchTables(page.current), []);
 
   useEffect(() => {
     if (!user) return undefined;
@@ -93,7 +90,7 @@ export default function Layout() {
                 ))}
               </nav>
               <form className="search" role="search" onSubmit={search}>
-                <input ref={searchBox} name="q" type="search" placeholder={t(matchMedia('(pointer: coarse)').matches ? 'Search' : 'Search ( / )')} aria-label={t('Search')} autoComplete="off" />
+                <input ref={searchBox} name="q" type="search" placeholder={t('Search ( / )')} aria-label={t('Search')} autoComplete="off" />
               </form>
               <div className="who">
                 <Link className="bell" to="/notifications">{t('Alerts')}{unread > 0 && <b>{unread}</b>}</Link>
@@ -110,7 +107,7 @@ export default function Layout() {
           </button>
         </div>
       </header>
-      <main ref={page}>
+      <main>
         <div className="shell">
           {flash && <div className={`flash ${flash.type === 'error' ? 'flash--error' : ''}`} role={flash.type === 'error' ? 'alert' : 'status'}>{t(flash.text)}</div>}
           <Outlet />

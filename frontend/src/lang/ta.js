@@ -503,4 +503,6 @@ export default {
   'never': 'இல்லை',
   'all': 'அனைத்தும்',
   'Choose a status': 'ஒரு நிலையைத் தேர்ந்தெடுக்கவும்',
+  'Choose an officer': 'ஒரு அதிகாரியைத் தேர்ந்தெடுக்கவும்',
+  'No officers available': 'அதிகாரிகள் யாரும் இல்லை',
 };
