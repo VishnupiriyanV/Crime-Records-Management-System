@@ -4,6 +4,7 @@ import { api, upload, withQuery } from '../api.js';
 import { MiniMap, PinPicker } from '../MapView.jsx';
 import { useSession } from '../session.jsx';
 import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Progress, SortTh, Status, Tags, useAct, useLoad } from '../ui.jsx';
+import { Dictate, SpeakComplaint } from '../voice.jsx';
 
 export function Complaints() {
   const { user } = useSession();
@@ -137,8 +138,12 @@ export function NewComplaint() {
     <>
       <PageHead title="File a complaint" text="The station reviews every complaint before a case is opened." />
       <form className="panel form-narrow" onSubmit={submit}>
+        <SpeakComplaint />
         <Field label="Short title" id="title"><input id="title" name="title" maxLength={120} required /></Field>
-        <Field label="What happened" id="description"><textarea id="description" name="description" required /></Field>
+        <Field label="What happened" id="description">
+          <textarea id="description" name="description" required />
+          <Dictate target="description" />
+        </Field>
         <div className="row">
           <Field label="Category" id="category">
             <select id="category" name="category" defaultValue="Other">{(data?.categories || ['Other']).map((c) => <option key={c}>{c}</option>)}</select>

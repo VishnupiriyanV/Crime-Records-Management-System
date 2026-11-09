@@ -235,3 +235,11 @@ html[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg
 .skeleton.short { width: 40%; }
 .stats--three { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: var(--space-lg) 0 0; }
 .stats--loose { margin: 0 0 var(--space-lg); }
+
+/* voice input */
+.voice-panel { border: var(--rule-hair) solid var(--color-rule); padding: var(--space-md); margin-bottom: var(--space-md); display: grid; gap: var(--space-sm); }
+.voice-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-top: var(--space-xs); }
+.voice-lang { width: auto; padding: var(--space-3xs) var(--space-xs); font-size: var(--text-sm); }
+.voice-heard { margin: 0; font-style: italic; }
+.voice-problem { color: var(--color-error); margin: 0; }
+.voice-result { margin: 0; font-weight: 600; }

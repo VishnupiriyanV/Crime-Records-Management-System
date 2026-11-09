@@ -297,3 +297,32 @@ def test_double_submit_files_one_complaint(make_client):
     assert asha.get("/api/complaints").json()["total"] == 1
     form["description"] = "Taken from the bench, near the fountain."
     assert asha.post("/api/complaints", json=form).json()["complaint_id"] != first
+
+
+def test_spoken_account_fills_the_fields():
+    from datetime import date
+
+    from app.dictation import read_complaint
+
+    today = date(2026, 11, 9)
+    got = read_complaint("someone stole my bike near the bus stand yesterday evening", today)
+    assert got["category"] == "Theft"
+    assert got["location"] == "the bus stand"
+    assert got["incident_date"] == "2026-11-08"
+    assert got["title"] == "Theft at the bus stand"
+    assert got["description"].startswith("Someone stole my bike")
+
+    # written dates are read day first, and a missing date stays empty
+    assert read_complaint("my shop window was smashed on 03/11/2026 outside Market Street", today)["incident_date"] == "2026-11-03"
+    assert read_complaint("my shop window was smashed outside Market Street", today)["incident_date"] is None
+    assert read_complaint("it happened on 5 november at the school gate", today)["incident_date"] == "2026-11-05"
+    assert read_complaint("a time of day is not a place: it was in the morning", today)["location"] == ""
+    assert read_complaint("something odd happened", today)["category"] == "Other"
+    assert read_complaint("", today)["description"] == ""
+
+
+def test_dictation_endpoint_needs_sign_in(make_client):
+    assert make_client().post("/api/complaints/dictation", json={"text": "x"}).status_code == 401
+    asha = make_client("asha@t.test")
+    got = asha.post("/api/complaints/dictation", json={"text": "my phone was hacked and money taken through upi"}).json()
+    assert got["category"] == "Cybercrime"

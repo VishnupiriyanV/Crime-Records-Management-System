@@ -7,7 +7,7 @@ A web app for a DBMS lab. Citizens file and track complaints; police officers an
 - **Relational database:** SQLite (default), PostgreSQL or MySQL, chosen by one setting. It holds users, complaints, cases, criminals and reports.
 - **MongoDB:** holds the document-shaped data: evidence, citizen notes, notifications, uploaded files and the status audit trail. Rows and documents are linked by id.
 
-Beyond the core flow it has charts on the dashboard and reports, a timeline on every case, one search box across complaints, cases and records, CSV exports of the lists and a PDF of each case file, in-page preview of uploaded images, PDFs and text, an admin audit log, live alerts, sortable lists, keyboard shortcuts (press `?`), a dark mode, FIR numbers and crime categories, a map with busiest areas, a full case file (statements, arrests, chargesheet, court dates, evidence chain of custody), and station and officer pages.
+Beyond the core flow it has charts on the dashboard and reports, a timeline on every case, one search box across complaints, cases and records, CSV exports of the lists and a PDF of each case file, in-page preview of uploaded images, PDFs and text, an admin audit log, live alerts, sortable lists, keyboard shortcuts (press `?`), a dark mode, FIR numbers and crime categories, a map with busiest areas, a full case file (statements, arrests, chargesheet, court dates, evidence chain of custody), station and officer pages, and voice input.
 
 ## Run it
 
@@ -51,6 +51,12 @@ export CRMS_DB_URL=mysql://crms:crms@localhost:3306/crms
 The tables are created on first start from `app/schemas/<database>.sql`. A database made by an older version gets any new columns added automatically on the next start. The passwords in `docker-compose.yml` are for local development only.
 
 Other settings, all optional on a development machine: `MONGO_URL` (default `mongodb://localhost:27017`), `MONGO_DB` (default `crms`), `CRMS_SECRET` (session signing key).
+
+## Voice input
+
+On the complaint form, **Speak your complaint** takes a spoken account and fills the title, description, place, date and category. It only fills boxes that are still empty, and only sets a date when one was spoken ("yesterday", "3 days ago", "5 November"). Officers get a **Dictate** button next to the evidence, statement, report and chargesheet text boxes.
+
+It uses the browser's own speech recognition, so it works in Chrome, Edge and Safari and the buttons are hidden elsewhere (Firefox). Chrome and Edge send the audio to the browser maker's speech service, which matters for sensitive reports; say so to the people using it. The page must be on HTTPS or localhost for the microphone to work. English, Tamil and Hindi can be spoken, but only English is sorted into category, date and place (`app/dictation.py`).
 
 ## Backups
 

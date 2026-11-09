@@ -3,6 +3,7 @@ import { api, upload, withQuery } from '../api.js';
 import { Bars, Line } from '../charts.jsx';
 import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, SortTh, Status, Tags, Timeline, useAct, useLoad } from '../ui.jsx';
 import { useSession } from '../session.jsx';
+import { Dictate } from '../voice.jsx';
 
 export function Dashboard() {
   const { data, error, loading, reload } = useLoad('/dashboard');
@@ -265,7 +266,7 @@ export function Case() {
                 <summary>Record evidence</summary>
                 <form onSubmit={recordEvidence}>
                   <Field label="Type" id="type"><input id="type" name="type" placeholder="Photograph, CCTV, weapon" required /></Field>
-                  <Field label="Description" id="ev-desc"><textarea id="ev-desc" name="description" required /></Field>
+                  <Field label="Description" id="ev-desc"><textarea id="ev-desc" name="description" required /><Dictate target="ev-desc" /></Field>
                   <Field label="File (optional)" id="ev-file"><input id="ev-file" name="file" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt" /></Field>
                   <button className="btn" type="submit">Save evidence</button>
                 </form>
@@ -287,7 +288,7 @@ export function Case() {
                     <Field label="Given by" id="st-kind"><select id="st-kind" name="kind"><option>witness</option><option>victim</option><option>accused</option><option>suspect</option></select></Field>
                     <Field label="Name" id="st-person"><input id="st-person" name="person" required /></Field>
                   </div>
-                  <Field label="Statement" id="st-body"><textarea id="st-body" name="body" required /></Field>
+                  <Field label="Statement" id="st-body"><textarea id="st-body" name="body" required /><Dictate target="st-body" /></Field>
                   <button className="btn" type="submit">Save statement</button>
                 </form>
               </details>
@@ -363,7 +364,7 @@ export function Case() {
               <details style={{ marginTop: 'var(--space-md)' }}>
                 <summary>Write a report</summary>
                 <form onSubmit={submit('/reports', 'Report saved.')}>
-                  <Field label="Report" id="content"><textarea id="content" name="content" required /></Field>
+                  <Field label="Report" id="content"><textarea id="content" name="content" required /><Dictate target="content" /></Field>
                   <button className="btn" type="submit">Save report</button>
                 </form>
               </details>
@@ -400,7 +401,7 @@ export function Case() {
                 <summary>File the chargesheet</summary>
                 <form onSubmit={submit('/chargesheet', 'Chargesheet filed. The case is now at Chargesheet Filed.')}>
                   <Field label="Sections" id="cs-sections" hint="Needs at least one suspect or accused linked to the case."><input id="cs-sections" name="sections" placeholder="BNS 303" required /></Field>
-                  <Field label="Summary" id="cs-summary"><textarea id="cs-summary" name="summary" required /></Field>
+                  <Field label="Summary" id="cs-summary"><textarea id="cs-summary" name="summary" required /><Dictate target="cs-summary" /></Field>
                   <button className="btn btn--primary" type="submit">File chargesheet</button>
                 </form>
               </details>

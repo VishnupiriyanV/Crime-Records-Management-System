@@ -116,3 +116,34 @@ def test_dark_mode_and_phone_layout(page):
         overflow = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
         assert overflow <= 0, f"{path} scrolls sideways by {overflow}px"
 
+
+
+def test_speaking_a_complaint_fills_the_form(page):
+    from datetime import date, timedelta
+
+    # headless Chromium cannot hear anything, so a stand-in speech engine "hears" one sentence
+    page.add_init_script("""
+      window.SpeechRecognition = window.webkitSpeechRecognition = class {
+        start() {
+          setTimeout(() => {
+            const heard = Object.assign([{ transcript: 'someone stole my bike near the bus stand yesterday evening' }], { isFinal: true });
+            this.onresult({ resultIndex: 0, results: [heard] });
+          }, 50);
+        }
+        stop() { setTimeout(() => this.onend(), 0); }
+        abort() {}
+      };
+    """)
+    sign_in(page, "asha@e2e.test")
+    page.goto(page.base + "/complaints/new")
+    page.fill("#location", "")
+    page.click("text=Speak your complaint")
+    expect(page.locator(".voice-heard")).to_contain_text("stole my bike")
+    page.click("text=Stop and fill the form")
+
+    expect(page.locator(".voice-result")).to_contain_text("Check every field")
+    expect(page.locator("#title")).to_have_value("Theft at the bus stand")
+    expect(page.locator("#category")).to_have_value("Theft")
+    expect(page.locator("#location")).to_have_value("the bus stand")
+    expect(page.locator("#incident_date")).to_have_value((date.today() - timedelta(days=1)).isoformat())
+    expect(page.locator("#description")).to_have_value("Someone stole my bike near the bus stand yesterday evening.")

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from ..auth import is_staff, login_required
 from ..constants import CATEGORIES, SEVERITIES, parse_fir, with_fir
+from ..dictation import read_complaint
 from ..db import get_db, many, one, run
 from ..forms import as_dict, as_dicts, need, order_by, page_number
 from ..lifecycle import RuleError, is_closed, log_status, register_case, reject_complaint, verify_complaint
@@ -119,6 +120,16 @@ def index(
         "pages": max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1),
         "categories": CATEGORIES, "severities": SEVERITIES,
     }
+
+
+class Spoken(BaseModel):
+    text: str = ""
+
+
+@router.post("/complaints/dictation")
+def from_speech(body: Spoken, user=login_required()):
+    """Suggest the form fields for a spoken account; nothing is saved."""
+    return read_complaint(body.text[:4000])
 
 
 @router.get("/meta")
