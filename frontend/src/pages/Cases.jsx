@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api, upload, withQuery } from '../api.js';
 import { Bars, Line } from '../charts.jsx';
@@ -194,6 +195,26 @@ export function Cases() {
   );
 }
 
+// whether the case ledger still matches the records it sealed, checked again on request
+function Integrity({ start, id }) {
+  const t = useT();
+  const [result, setResult] = useState(start);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setResult(start), [start]);
+  const check = async () => {
+    setBusy(true);
+    try { setResult(await api(`/cases/${id}/integrity`)); } finally { setBusy(false); }
+  };
+  return (
+    <div className={`integrity${result.ok ? '' : ' integrity--bad'}`} role="status">
+      <b>{t(result.ok ? 'Sealed and verified' : 'Integrity problem')}</b>
+      <span className="muted">{t('{n} entries, chain head {head}', { n: result.entries, head: result.head.slice(0, 12) || '-' })}</span>
+      {result.problems.map((p) => <span key={p} className="integrity-problem">{t(p)}</span>)}
+      <button type="button" className="btn btn--small" onClick={check} disabled={busy}>{t('Verify integrity')}</button>
+    </div>
+  );
+}
+
 export function Case() {
   const t = useT();
   const { id } = useParams();
@@ -203,7 +224,7 @@ export function Case() {
   if (loading) return <Loading />;
   if (error) return <Failed error={error} retry={error.status === 404 ? undefined : reload} />;
 
-  const { case: c, evidence, linked, available, reports, notes, timeline, attachments, officers, editable, next_states, statements, arrests, court_dates, chargesheet, custody_actions, flags } = data;
+  const { case: c, evidence, linked, available, reports, notes, timeline, attachments, officers, editable, next_states, statements, arrests, court_dates, chargesheet, custody_actions, flags, integrity } = data;
   const send = (path, body, ok, method = 'POST') => act(() => api(`/cases/${id}${path}`, { method, body }), ok);
   // reset the form once the write has gone through
   const sendFile = (no) => async (event) => {
@@ -497,6 +518,7 @@ export function Case() {
 
           <section className="panel">
             <h2>{t('Timeline')}</h2>
+            <Integrity start={integrity} id={id} />
             <Timeline events={timeline} />
           </section>
         </div>

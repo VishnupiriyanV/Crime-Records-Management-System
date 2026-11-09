@@ -259,8 +259,14 @@ export function Timeline({ events }) {
     <ol className="timeline">
       {events.map((e, i) => (
         <li key={i} className={`timeline-${e.kind}`}>
-          <span className="num muted">{e.at.slice(0, 16)}</span>
-          <span>{e.text}{e.who && <span className="muted"> {t('by {who}', { who: e.who })}</span>}</span>
+          <span className="num muted">{e.at.slice(0, 19)}</span>
+          <span>
+            {e.text}{e.who && <span className="muted"> {t('by {who}', { who: e.who })}</span>}
+            {e.detail && <span className="timeline-detail muted">{e.detail}</span>}
+            <span className={`seal${e.seal ? '' : ' seal--none'}`} title={e.seal ? t('Sealed {when} by {who}', { when: e.seal.sealed_at.slice(0, 19), who: e.seal.sealed_by }) : t('Not covered by the seal')}>
+              {e.seal ? `#${e.seal.seq} ${e.seal.hash}${e.seal.imported ? ` ${t('imported')}` : ''}` : t('not sealed')}
+            </span>
+          </span>
         </li>
       ))}
     </ol>

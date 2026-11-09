@@ -66,6 +66,16 @@ Staff see red flags where work has waited too long, and the dashboard has a **Ne
 
 When a citizen files a complaint, the form first checks their own earlier complaints for one that looks the same (similar wording, place and date) and asks before filing. Staff see **Possible duplicates** on a complaint page, with a button to reject one as a duplicate. The matching is plain word, distance and date comparison in `app/similar.py`, so it will miss a duplicate described in very different words. Citizens never see anyone else's complaints.
 
+## Case ledger and the PDF
+
+Every event on a case is sealed into a ledger: status changes, assignments, evidence and each custody step, files, statements, arrests, the chargesheet, court dates and outcomes, reports and citizen notes. Each entry holds a keyed hash (HMAC-SHA256) of the entry before it, so editing, removing or reordering one breaks every hash after it, and someone who can write to the database but does not know `CRMS_SECRET` cannot repair the chain. The head of the chain is also kept separately, which exposes entries cut off the end.
+
+The case page shows each event with its time, who did it, the detail, and its seal (`#7 3f9a1c2b`), and **Verify integrity** checks everything again: the chain, that no sealed record was edited or deleted, and that no record exists that was never sealed. Looking at a case never seals anything new, so a forged record cannot be blessed by a page view. A case that existed before this feature is sealed once, the first time it is opened, and marked imported; tampering before that moment cannot be detected.
+
+Keep `CRMS_SECRET` the same across restarts and restores: a different secret makes every old entry fail verification. A backup includes the ledger.
+
+`GET /api/export/cases/{id}.pdf` is a printable case file with a letterhead, the case summary, tables for people, evidence with its custody chain, arrests and court dates, the ledger with each entry's seal, a verification box with the chain head, and signature lines. Text in Tamil or Hindi cannot be printed with the built-in PDF fonts and shows as `?`; the PDF says so when that happens.
+
 ## Voice input
 
 On the complaint form, **Speak your complaint** takes a spoken account and fills the title, description, place, date and category. It only fills boxes that are still empty, and only sets a date when one was spoken ("yesterday", "3 days ago", "5 November"). Officers get a **Dictate** button next to the evidence, statement, report and chargesheet text boxes.

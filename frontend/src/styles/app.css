@@ -318,3 +318,13 @@ html[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) grayscale(1) sepi
   .row > .btn { flex: 1 1 100%; }
   .pager { flex-direction: column; align-items: flex-start; gap: var(--space-xs); }
 }
+
+/* the seal on a timeline entry and the integrity check above it */
+.timeline-detail { display: block; font-size: var(--text-xs); margin-top: var(--space-3xs); }
+.seal { display: block; margin-top: var(--space-3xs); font: 500 var(--text-xs)/1.4 var(--font-outlier); color: var(--color-muted); }
+.seal--none { color: var(--color-error); }
+.integrity { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-sm); margin-bottom: var(--space-md); padding: var(--space-sm); background: var(--color-success-tint); border: 1px solid var(--color-success); border-radius: var(--radius-pill); }
+.integrity--bad { background: var(--color-error-tint); border-color: var(--color-error); }
+.integrity--bad > b, .integrity-problem { color: var(--color-error); }
+.integrity .btn { margin-left: auto; }
+.integrity-problem { flex-basis: 100%; font-size: var(--text-xs); }

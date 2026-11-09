@@ -7,7 +7,7 @@ from ..auth import is_staff, login_required
 from ..constants import CATEGORIES, SEVERITIES, parse_fir, with_fir
 from ..dictation import read_complaint
 from ..overdue import complaint_flags
-from .. import similar
+from .. import ledger, similar
 from ..db import get_db, many, one, run
 from ..forms import as_dict, as_dicts, need, order_by, page_number
 from ..lifecycle import RuleError, is_closed, log_status, register_case, reject_complaint, verify_complaint
@@ -283,6 +283,7 @@ def add_note(complaint_id: int, body: Note, user=login_required("citizen")):
         "complaint_id": complaint_id, "kind": body.kind,
         "body": need(body.body, "Note", 4000), "created_at": now(),
     })
+    ledger.seal_complaint(complaint_id, user["name"])
     return {"ok": True}
 
 
@@ -300,4 +301,6 @@ def reject(complaint_id: int, body: Reject, user=login_required("officer", "admi
 
 @router.post("/complaints/{complaint_id}/register-case")
 def open_case(complaint_id: int, body: OpenCase, user=login_required("officer", "admin")):
-    return {"case_id": register_case(complaint_id, body.station_id, user["user_id"])}
+    case_id = register_case(complaint_id, body.station_id, user["user_id"])
+    ledger.seal_case(case_id, user["name"])
+    return {"case_id": case_id}

@@ -505,4 +505,12 @@ export default {
   'Choose a status': 'ஒரு நிலையைத் தேர்ந்தெடுக்கவும்',
   'Choose an officer': 'ஒரு அதிகாரியைத் தேர்ந்தெடுக்கவும்',
   'No officers available': 'அதிகாரிகள் யாரும் இல்லை',
+  'Sealed {when} by {who}': '{when} அன்று {who} முத்திரையிட்டார்',
+  'Not covered by the seal': 'முத்திரையில் சேர்க்கப்படவில்லை',
+  'imported': 'இறக்குமதி',
+  'not sealed': 'முத்திரை இல்லை',
+  'Sealed and verified': 'முத்திரையிடப்பட்டு சரிபார்க்கப்பட்டது',
+  'Integrity problem': 'நேர்மைச் சிக்கல்',
+  '{n} entries, chain head {head}': '{n} பதிவுகள், சங்கிலித் தலைப்பு {head}',
+  'Verify integrity': 'நேர்மையைச் சரிபார்',
 };

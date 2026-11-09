@@ -505,4 +505,12 @@ export default {
   'Choose a status': 'स्थिति चुनें',
   'Choose an officer': 'अधिकारी चुनें',
   'No officers available': 'कोई अधिकारी उपलब्ध नहीं',
+  'Sealed {when} by {who}': '{who} ने {when} पर सील किया',
+  'Not covered by the seal': 'सील में शामिल नहीं',
+  'imported': 'आयातित',
+  'not sealed': 'सील नहीं',
+  'Sealed and verified': 'सील और सत्यापित',
+  'Integrity problem': 'अखंडता में समस्या',
+  '{n} entries, chain head {head}': '{n} प्रविष्टियाँ, शृंखला शीर्ष {head}',
+  'Verify integrity': 'अखंडता जाँचें',
 };

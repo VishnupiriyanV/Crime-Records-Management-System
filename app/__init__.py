@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 
-from . import db, mongo
+from . import db, ledger, mongo
 from .auth import check_csrf
 from .lifecycle import RuleError
 from .main_config import ROOT, database_url, mongo_name, mongo_url, production, secret_key
@@ -23,6 +23,7 @@ def create_app(database=None, secret=None, mongo_client=None):
         Path(path.removeprefix("sqlite:///")).parent.mkdir(parents=True, exist_ok=True)
     db.init_db(path)
     mongo.configure(mongo_url(), mongo_name(), client=mongo_client)
+    ledger.configure(secret or secret_key())
 
     # the interactive API pages are left off so the site only shows the app itself
     app = FastAPI(

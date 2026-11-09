@@ -6,6 +6,7 @@ from ..constants import with_fir
 from ..db import many
 from ..exports import case_pdf, to_csv
 from ..timeline import case_timeline
+from .. import ledger
 from ..mongo import clean, mdb
 from .cases import CASE_SELECT, SORTS as CASE_SORTS, case_filter, load_case
 from .complaints import LIST_SELECT as COMPLAINT_SELECT, SORTS as COMPLAINT_SORTS, complaint_filter
@@ -78,7 +79,11 @@ def case_file(case_id: int, user=login_required("officer", "admin")):
         "court_dates": clean(mdb().court_dates.find({"case_id": case_id}).sort("date", 1)),
         "chargesheet": (clean(mdb().chargesheets.find({"case_id": case_id})) or [None])[0],
     }
-    pdf = case_pdf(with_fir(case), evidence, linked, reports, case_timeline(case, reports), extra)
+    events = case_timeline(case, reports)
+    ledger.ensure(case, events)
+    integrity = ledger.verify(case["complaint_id"], events)
+    timeline = ledger.annotate(case["complaint_id"], events)
+    pdf = case_pdf(with_fir(case), evidence, linked, reports, timeline, extra, integrity, user["name"])
     return Response(
         pdf, media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="case-{case_id}.pdf"'},

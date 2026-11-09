@@ -6,6 +6,7 @@ from bson import Binary
 from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.responses import Response
 
+from .. import ledger
 from ..auth import is_staff, login_required
 from ..db import one
 from ..lifecycle import RuleError, is_closed
@@ -72,7 +73,9 @@ async def upload(complaint_id: int, file: UploadFile, user=login_required("citiz
         raise RuleError("This complaint is closed to new files.")
     if mdb().attachments.count_documents({"complaint_id": complaint_id}) >= MAX_PER_COMPLAINT:
         raise RuleError(f"A complaint can hold {MAX_PER_COMPLAINT} files at most.")
-    return {"attachment_id": await save_upload(file, {"complaint_id": complaint_id})}
+    attachment_id = await save_upload(file, {"complaint_id": complaint_id})
+    ledger.seal_complaint(complaint_id, user["name"])
+    return {"attachment_id": attachment_id}
 
 
 @router.get("/attachments/{attachment_id}")

@@ -33,6 +33,8 @@ def configure(url=None, name="crms", client=None):
         _db[name].create_index("case_id")
     _db.officer_photos.create_index("officer_id", unique=True)
     _db.api_tokens.create_index("hash", unique=True)
+    _db.ledger.create_index([("complaint_id", ASCENDING), ("seq", ASCENDING)], unique=True)
+    _db.ledger_heads.create_index("complaint_id", unique=True)
     _db.webhooks.create_index("webhook_id", unique=True)
     _db.notifications.create_index([("user_id", ASCENDING), ("seen", ASCENDING)])
     _db.status_log.create_index([("entity", ASCENDING), ("entity_id", ASCENDING)])

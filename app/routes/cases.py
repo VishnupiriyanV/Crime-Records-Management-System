@@ -10,8 +10,9 @@ from ..lifecycle import (
 )
 from ..mongo import clean, mdb, now
 from ..overdue import case_flags
+from .. import ledger
 from ..stats import monthly_complaints
-from ..timeline import case_timeline
+from ..timeline import case_timeline, events_for
 from .attachments import list_for, save_upload
 
 router = APIRouter(prefix="/api")
@@ -224,6 +225,13 @@ def index(
     }
 
 
+@router.get("/cases/{case_id}/integrity")
+def integrity_check(case_id: int, user=login_required("officer", "admin")):
+    """Check the case ledger again, now: the chain, the records it sealed, and anything not sealed."""
+    case = load_case(case_id)
+    return ledger.verify(case["complaint_id"], events_for(case))
+
+
 @router.get("/cases/{case_id}")
 def detail(case_id: int, user=login_required("officer", "admin")):
     case = load_case(case_id)
@@ -248,7 +256,10 @@ def detail(case_id: int, user=login_required("officer", "admin")):
     )
     notes = clean(mdb().notes.find({"complaint_id": case["complaint_id"]}).sort("_id", 1))
     history = clean(mdb().status_log.find({"entity": "case", "entity_id": case_id}).sort("_id", 1))
-    timeline = case_timeline(case, reports)
+    events = case_timeline(case, reports)
+    ledger.ensure(case, events)
+    timeline = ledger.annotate(case["complaint_id"], events)
+    integrity = ledger.verify(case["complaint_id"], events)
     attachments = list_for(case["complaint_id"])
     officers = many(
         "SELECT o.officer_id, u.name, o.officer_rank FROM officer o JOIN users u ON u.user_id = o.user_id"
@@ -262,7 +273,7 @@ def detail(case_id: int, user=login_required("officer", "admin")):
         "chargesheet": (clean(mdb().chargesheets.find({"case_id": case_id})) or [None])[0],
         "custody_actions": CUSTODY_ACTIONS,
         "available": as_dicts(available), "reports": as_dicts(reports), "notes": notes,
-        "history": history, "timeline": timeline, "attachments": attachments, "officers": as_dicts(officers),
+        "history": history, "timeline": timeline, "integrity": integrity, "attachments": attachments, "officers": as_dicts(officers),
         "editable": can_edit(case, user), "next_states": CASE_TRANSITIONS[case["status"]],
         "flags": case_flags([case]).get(case_id, []),
     }
@@ -272,12 +283,15 @@ def detail(case_id: int, user=login_required("officer", "admin")):
 def status(case_id: int, body: Status, user=login_required("officer", "admin")):
     require_edit(case_id, user)
     change_case_status(case_id, body.status, user["user_id"])
+    ledger.seal_case(case_id, user["name"])
     return {"ok": True}
 
 
 @router.post("/cases/{case_id}/assign")
 def assign(case_id: int, body: Assign, user=login_required("admin")):
-    return {"officer": assign_officer(case_id, body.officer_id, user["user_id"])}
+    officer = assign_officer(case_id, body.officer_id, user["user_id"])
+    ledger.seal_case(case_id, user["name"])
+    return {"officer": officer}
 
 
 @router.post("/cases/{case_id}/evidence")
@@ -292,6 +306,7 @@ def add_evidence(case_id: int, body: Evidence, user=login_required("officer", "a
         "description": description, "date_collected": now()[:10], "created_at": now(),
         "custody": [{"at": now(), "action": "collected", "by": user["name"], "where": "", "note": ""}],
     })
+    ledger.seal_case(case_id, user["name"])
     return {"evidence_no": next_no}
 
 
@@ -328,6 +343,7 @@ def add_report(case_id: int, body: ReportBody, user=login_required("officer", "a
         case_id, my_officer_id(user), need(body.content, "Report", 6000),
     )
     get_db().commit()
+    ledger.seal_case(case_id, user["name"])
     return {"ok": True}
 
 
@@ -359,6 +375,7 @@ def add_custody(case_id: int, evidence_no: int, body: CustodyBody, user=login_re
             "note": need(body.note, "Note", 500, required=False),
         }}},
     )
+    ledger.seal_case(case_id, user["name"])
     return {"ok": True}
 
 
@@ -368,7 +385,9 @@ async def add_evidence_file(case_id: int, evidence_no: int, file: UploadFile, us
     _evidence_item(case_id, evidence_no)
     if mdb().attachments.count_documents({"case_id": case_id, "evidence_no": evidence_no}) >= 5:
         raise RuleError("An evidence item can hold 5 files at most.")
-    return {"attachment_id": await save_upload(file, {"case_id": case_id, "evidence_no": evidence_no})}
+    attachment_id = await save_upload(file, {"case_id": case_id, "evidence_no": evidence_no})
+    ledger.seal_case(case_id, user["name"])
+    return {"attachment_id": attachment_id}
 
 
 @router.post("/cases/{case_id}/statements")
@@ -381,6 +400,7 @@ def add_statement(case_id: int, body: StatementBody, user=login_required("office
         "case_id": case_id, "no": no, "kind": body.kind, "person": need(body.person, "Name", 120),
         "body": need(body.body, "Statement", 4000), "recorded_by": user["name"], "recorded_at": now(),
     })
+    ledger.seal_case(case_id, user["name"])
     return {"no": no}
 
 
@@ -398,6 +418,7 @@ def add_arrest(case_id: int, body: ArrestBody, user=login_required("officer", "a
         "place": need(body.place, "Place", 200), "charges": need(body.charges, "Charges", 500),
         "recorded_by": user["name"], "recorded_at": now(),
     })
+    ledger.seal_case(case_id, user["name"])
     return {"no": no}
 
 
@@ -407,6 +428,7 @@ def chargesheet(case_id: int, body: ChargesheetBody, user=login_required("office
     file_chargesheet(
         case_id, need(body.sections, "Sections", 300), need(body.summary, "Summary", 4000), user["user_id"],
     )
+    ledger.seal_case(case_id, user["name"])
     return {"ok": True}
 
 
@@ -424,6 +446,7 @@ def add_court_date(case_id: int, body: CourtDateBody, user=login_required("offic
     owner = one("SELECT u.user_id FROM complaint c JOIN citizen ct ON ct.citizen_id = c.citizen_id"
                 " JOIN users u ON u.user_id = ct.user_id WHERE c.complaint_id = ?", case["complaint_id"])
     notify(owner["user_id"], f"A court date was set for your case on {day}.", f"/complaints/{case['complaint_id']}")
+    ledger.seal_case(case_id, user["name"])
     return {"no": no}
 
 
@@ -431,8 +454,9 @@ def add_court_date(case_id: int, body: CourtDateBody, user=login_required("offic
 def court_outcome(case_id: int, no: int, body: OutcomeBody, user=login_required("officer", "admin")):
     require_edit(case_id, user)
     result = mdb().court_dates.update_one(
-        {"case_id": case_id, "no": no}, {"$set": {"outcome": need(body.outcome, "Outcome", 500)}}
+        {"case_id": case_id, "no": no}, {"$set": {"outcome": need(body.outcome, "Outcome", 500), "outcome_at": now(), "outcome_by": user["name"]}}
     )
     if result.matched_count == 0:
         raise HTTPException(404, "That court date does not exist.")
+    ledger.seal_case(case_id, user["name"])
     return {"ok": True}
