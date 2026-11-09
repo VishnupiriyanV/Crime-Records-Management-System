@@ -184,3 +184,20 @@ def test_backup_keeps_only_the_newest(app, tmp_path, make_client):
         backup.create_backup(url, tmp_path / "b", keep=2)
         time.sleep(1.1)
     assert len(list((tmp_path / "b").glob("crms-*.tar.gz"))) == 2
+
+
+def test_accounts_can_be_sorted(make_client):
+    admin = make_client("admin@t.test")
+
+    def names(query=""):
+        return [r["name"] for r in admin.get(f"/api/users{query}").json()["rows"]]
+
+    assert names("?sort=name&dir=asc") == sorted(names("?sort=name&dir=asc"))
+    assert names("?sort=name&dir=desc") == names("?sort=name&dir=asc")[::-1]
+    emails = [r["email"] for r in admin.get("/api/users?sort=email&dir=asc").json()["rows"]]
+    assert emails == sorted(emails)
+    roles = [r["role"] for r in admin.get("/api/users?sort=role&dir=desc").json()["rows"]]
+    assert roles == sorted(roles, reverse=True)
+    # an unknown column falls back to the default instead of reaching the SQL
+    assert admin.get("/api/users?sort=password; DROP TABLE users").status_code == 200
+    assert len(names("?sort=nope")) == 5

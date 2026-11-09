@@ -262,3 +262,16 @@ def test_staff_screens_work_in_tamil_and_hindi(page):
             page.wait_for_selector("h1, .empty")
             overflow = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
             assert overflow <= 0, f"{path} in {code} scrolls sideways by {overflow}px"
+
+
+def test_accounts_table_sorts_when_a_heading_is_clicked(page):
+    sign_in(page, "admin@e2e.test")
+    page.goto(page.base + "/users")
+    page.click("th button:has-text('Email')")
+    expect(page).to_have_url(re.compile(r"sort=email&dir=asc"))
+    emails = page.locator("table.data").first.locator("tbody tr td:nth-child(2)").all_inner_texts()
+    assert emails == sorted(emails)
+    page.click("th button:has-text('Email')")
+    expect(page).to_have_url(re.compile(r"dir=desc"))
+    first = page.locator("table.data").first.locator("tbody tr td:nth-child(2)").first
+    expect(first).to_have_text(emails[-1])  # the table is reloaded with the last address on top

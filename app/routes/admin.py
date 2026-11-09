@@ -76,12 +76,18 @@ def reports(start: str = "", end: str = "", criminal: str = "", user=login_requi
     }
 
 
+# the columns the accounts table can be sorted by; only these ever reach the SQL
+USER_SORTS = {"name": "u.name", "email": "u.email", "role": "u.role", "station": "ps.name", "status": "u.active"}
+
+
 @router.get("/users")
-def users(user=login_required("admin")):
+def users(sort: str = "role", dir: str = "asc", user=login_required("admin")):
+    column = USER_SORTS.get(sort, USER_SORTS["role"])
+    way = "DESC" if dir == "desc" else "ASC"
     rows = many(
         "SELECT u.user_id, u.name, u.email, u.role, u.active, o.badge_no, o.officer_rank, ps.name AS station"
         " FROM users u LEFT JOIN officer o ON o.user_id = u.user_id"
-        " LEFT JOIN police_station ps ON ps.station_id = o.station_id ORDER BY u.role, u.name"
+        f" LEFT JOIN police_station ps ON ps.station_id = o.station_id ORDER BY {column} {way}, u.name"
     )
     stations = many("SELECT * FROM police_station ORDER BY name")
     return {"rows": as_dicts(rows), "stations": as_dicts(stations), "roles": ROLES}

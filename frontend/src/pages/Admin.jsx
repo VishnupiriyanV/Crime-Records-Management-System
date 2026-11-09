@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api, withQuery } from '../api.js';
 import { Bars, Line } from '../charts.jsx';
 import { useSession } from '../session.jsx';
-import { Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Status, useAct, useLoad } from '../ui.jsx';
+import { Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, SortTh, Status, useAct, useLoad } from '../ui.jsx';
 import { useT } from '../i18n.jsx';
 
 export function Reports() {
@@ -108,7 +108,8 @@ export function Reports() {
 export function Users() {
   const t = useT();
   const { user } = useSession();
-  const { data, error, loading, reload } = useLoad('/users');
+  const [params] = useSearchParams();
+  const { data, error, loading, reload } = useLoad(withQuery('/users', { sort: params.get('sort') || '', dir: params.get('dir') || '' }));
   const act = useAct(reload);
   const [role, setRole] = useState('citizen');
   if (loading) return <Loading />;
@@ -139,7 +140,7 @@ export function Users() {
       <section className="panel">
         <h2>{t('Accounts')}</h2>
         <div className="table-wrap"><table className="data">
-          <thead><tr><th>{t('Name')}</th><th>{t('Email')}</th><th>{t('Role')}</th><th>{t('Station')}</th><th>{t('Status')}</th><th></th></tr></thead>
+          <thead><tr><SortTh id="name">Name</SortTh><SortTh id="email">Email</SortTh><SortTh id="role">Role</SortTh><SortTh id="station">Station</SortTh><SortTh id="status">Status</SortTh><th></th></tr></thead>
           <tbody>{data.rows.map((u) => (
             <tr key={u.user_id}>
               <td>{u.name}</td><td>{u.email}</td>
