@@ -6,18 +6,18 @@ import { useSession } from './session.jsx';
 const links = {
   citizen: [['/complaints', 'My complaints'], ['/complaints/new', 'File a complaint'], ['/records', 'Public records']],
   officer: [['/dashboard', 'Dashboard'], ['/complaints', 'Complaints'], ['/cases', 'Cases'], ['/criminals', 'Criminals'], ['/map', 'Map'], ['/stations', 'Stations']],
-  admin: [['/dashboard', 'Dashboard'], ['/complaints', 'Complaints'], ['/cases', 'Cases'], ['/criminals', 'Criminals'], ['/map', 'Map'], ['/stations', 'Stations'], ['/reports', 'Reports'], ['/users', 'Users'], ['/audit', 'Audit']],
+  admin: [['/dashboard', 'Dashboard'], ['/complaints', 'Complaints'], ['/cases', 'Cases'], ['/criminals', 'Criminals'], ['/map', 'Map'], ['/stations', 'Stations'], ['/reports', 'Reports'], ['/users', 'Users'], ['/audit', 'Audit'], ['/integrations', 'Integrations']],
 };
 
 // press g, then one of these keys, to jump to a page
 const jumps = {
   citizen: { c: '/complaints', n: '/complaints/new', r: '/records', a: '/notifications' },
   officer: { d: '/dashboard', c: '/complaints', k: '/cases', r: '/criminals', m: '/map', s: '/stations', a: '/notifications' },
-  admin: { d: '/dashboard', c: '/complaints', k: '/cases', r: '/criminals', m: '/map', s: '/stations', p: '/reports', u: '/users', l: '/audit', a: '/notifications' },
+  admin: { d: '/dashboard', c: '/complaints', k: '/cases', r: '/criminals', m: '/map', s: '/stations', p: '/reports', u: '/users', l: '/audit', i: '/integrations', a: '/notifications' },
 };
 const jumpLabels = {
   d: 'Dashboard', c: 'Complaints', k: 'Cases', r: 'Criminals (Public records for citizens)', p: 'Reports',
-  u: 'Users', l: 'Audit log', m: 'Map', s: 'Stations', a: 'Alerts', n: 'File a complaint',
+  u: 'Users', l: 'Audit log', i: 'Integrations', m: 'Map', s: 'Stations', a: 'Alerts', n: 'File a complaint',
 };
 
 function isDark() {

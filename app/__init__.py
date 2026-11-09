@@ -10,7 +10,9 @@ from . import db, mongo
 from .auth import check_csrf
 from .lifecycle import RuleError
 from .main_config import ROOT, database_url, mongo_name, mongo_url, production, secret_key
-from .routes import account, admin, attachments, audit, cases, complaints, criminals, exports, hotspots, search, stations
+from .routes import (
+    account, admin, attachments, audit, cases, complaints, criminals, exports, hotspots, integrations, search, stations,
+)
 
 DIST = ROOT / "frontend" / "dist"
 
@@ -47,7 +49,9 @@ def create_app(database=None, secret=None, mongo_client=None):
     def health():
         return {"ok": True}
 
-    for module in (account, complaints, attachments, cases, criminals, admin, search, exports, audit, hotspots, stations):
+    for module in (
+        account, complaints, attachments, cases, criminals, admin, search, exports, audit, hotspots, stations, integrations,
+    ):
         app.include_router(module.router)
 
     @app.exception_handler(RuleError)

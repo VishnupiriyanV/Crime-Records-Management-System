@@ -32,6 +32,8 @@ def configure(url=None, name="crms", client=None):
     for name in ("statements", "arrests", "court_dates", "chargesheets"):
         _db[name].create_index("case_id")
     _db.officer_photos.create_index("officer_id", unique=True)
+    _db.api_tokens.create_index("hash", unique=True)
+    _db.webhooks.create_index("webhook_id", unique=True)
     _db.notifications.create_index([("user_id", ASCENDING), ("seen", ASCENDING)])
     _db.status_log.create_index([("entity", ASCENDING), ("entity_id", ASCENDING)])
     return _db

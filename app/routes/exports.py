@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
 from ..auth import login_required
@@ -10,7 +10,8 @@ from ..mongo import clean, mdb
 from .cases import CASE_SELECT, SORTS as CASE_SORTS, case_filter, load_case
 from .complaints import LIST_SELECT as COMPLAINT_SELECT, SORTS as COMPLAINT_SORTS, complaint_filter
 from .criminals import LIST_SELECT as CRIMINAL_SELECT, SORTS as CRIMINAL_SORTS, criminal_filter
-from ..forms import order_by
+from ..fir_export import one_fir, page_of_firs
+from ..forms import need_date, order_by, page_number
 
 router = APIRouter(prefix="/api/export")
 
@@ -82,3 +83,17 @@ def case_file(case_id: int, user=login_required("officer", "admin")):
         pdf, media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="case-{case_id}.pdf"'},
     )
+
+
+@router.get("/fir/{complaint_id}")
+def fir_json(complaint_id: int, user=login_required("officer", "admin")):
+    found = one_fir(complaint_id)
+    if found is None:
+        raise HTTPException(404, "That complaint does not exist.")
+    return found
+
+
+@router.get("/firs")
+def firs_json(since: str = "", page: str = "1", user=login_required("officer", "admin")):
+    """Every complaint with its case, newest filings last; `since` is a filing date, YYYY-MM-DD."""
+    return page_of_firs(need_date(since, "Since") if since else "", page_number(page))

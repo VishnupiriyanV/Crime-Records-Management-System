@@ -2,6 +2,7 @@
 from .constants import CHARGEABLE
 from .db import get_db, many, one, run
 from .mongo import mdb, now
+from . import webhooks
 
 # the only moves a case may make
 CASE_TRANSITIONS = {
@@ -27,6 +28,7 @@ def log_status(entity, entity_id, old, new, user_id):
         "entity": entity, "entity_id": entity_id, "old_status": old, "new_status": new,
         "user_id": user_id, "who": who["name"] if who else None, "changed_at": now(),
     })
+    webhooks.emit(entity, entity_id, old, new)
 
 
 def notify(user_id, message, link=None):

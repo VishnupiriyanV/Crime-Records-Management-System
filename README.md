@@ -58,6 +58,15 @@ On the complaint form, **Speak your complaint** takes a spoken account and fills
 
 It uses the browser's own speech recognition, so it works in Chrome, Edge and Safari and the buttons are hidden elsewhere (Firefox). Chrome and Edge send the audio to the browser maker's speech service, which matters for sensitive reports; say so to the people using it. The page must be on HTTPS or localhost for the microphone to work. English, Tamil and Hindi can be spoken, but only English is sorted into category, date and place (`app/dictation.py`).
 
+## Connecting other systems
+
+Admins open **Integrations** to make API tokens and webhooks.
+
+- **Tokens.** Send `Authorization: Bearer crms_...` with each call. A token acts as the admin who made it. A read token can only fetch, and no token can manage users, tokens or webhooks. Only a hash is stored, so the token is shown once. Revoke it from the same page.
+- **JSON export.** `GET /api/export/fir/{id}` returns one complaint with its case, people, chargesheet and court dates. `GET /api/export/firs?since=2026-01-01&page=1` returns them 25 at a time. The layout is ours, named `crms.fir/1` in each record; it is not the national CCTNS format.
+- **Webhooks.** CRMS posts JSON to your address when a complaint is filed or changes status, a case is opened or changes status, or a case is assigned. Each call carries `X-CRMS-Event` and `X-CRMS-Signature` (`sha256=` and the HMAC-SHA256 of the raw body, keyed with the secret shown when you added it). It tries three times and the page shows the last result. Only ids, FIR number, status and category go out. When the site is live the address must be `https://` and reachable from the internet.
+- **Speech to fields.** `POST /api/complaints/dictation` with `{"text": "..."}` returns the form fields it can read from a transcript, for example from a call centre. Nothing is saved.
+
 ## Backups
 
 ```

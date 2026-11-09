@@ -8,6 +8,7 @@ import { Complaint, Complaints, NewComplaint } from './pages/Complaints.jsx';
 import { Case, Cases, Dashboard } from './pages/Cases.jsx';
 import { CriminalForm, Criminals } from './pages/Criminals.jsx';
 import { Audit, Reports, Users } from './pages/Admin.jsx';
+import { Integrations } from './pages/Integrations.jsx';
 import { Search } from './pages/Search.jsx';
 import { Hotspots } from './pages/Hotspots.jsx';
 import { Officer, Station, Stations } from './pages/Stations.jsx';
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="/reports" element={<Guard roles={['admin']}><Reports /></Guard>} />
         <Route path="/users" element={<Guard roles={['admin']}><Users /></Guard>} />
         <Route path="/audit" element={<Guard roles={['admin']}><Audit /></Guard>} />
+        <Route path="/integrations" element={<Guard roles={['admin']}><Integrations /></Guard>} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
