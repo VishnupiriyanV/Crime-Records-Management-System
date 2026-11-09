@@ -26,9 +26,9 @@ def case_timeline(case, reports):
     events = []
 
     for entry in clean(mdb().status_log.find({"entity": "complaint", "entity_id": complaint_id})):
-        events.append((entry["changed_at"], "status", _status_text("complaint", entry["old_status"], entry["new_status"]), entry["who"]))
+        events.append((entry["changed_at"], "status", _status_text("complaint", entry["old_status"], entry["new_status"]), entry["who"], entry["new_status"]))
     for entry in clean(mdb().status_log.find({"entity": "case", "entity_id": case_id})):
-        events.append((entry["changed_at"], "status", _status_text("case", entry["old_status"], entry["new_status"]), entry["who"]))
+        events.append((entry["changed_at"], "status", _status_text("case", entry["old_status"], entry["new_status"]), entry["who"], entry["new_status"]))
     for entry in clean(mdb().status_log.find({"entity": "case assignment", "entity_id": case_id})):
         text = f"Assigned to {_officer_name(entry['new_status'])}"
         if entry["old_status"] is not None:
@@ -59,4 +59,5 @@ def case_timeline(case, reports):
         events.append((upload["uploaded_at"], "file", f"File attached: {upload['filename']}", None))
 
     events.sort(key=lambda e: e[0])
-    return [{"at": at, "kind": kind, "text": text, "who": who} for at, kind, text, who in events]
+    # a status change also says which status it moved to, so the page can draw it as a stamp
+    return [{"at": e[0], "kind": e[1], "text": e[2], "who": e[3], **({"status": e[4]} if len(e) > 4 else {})} for e in events]

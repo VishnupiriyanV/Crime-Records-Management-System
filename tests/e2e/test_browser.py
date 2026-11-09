@@ -213,7 +213,7 @@ def test_forms_in_hindi_and_tamil(page):
     page.select_option("#category", "Burglary")
     page.click("text=शिकायत जमा करें")
     expect(page).to_have_url(re.compile(r"/complaints/\d+$"))
-    expect(page.locator(".page-head .stamp-status")).to_have_text("दर्ज")
+    expect(page.locator(".page-head .plane-status")).to_have_text("दर्ज")
     expect(page.locator("h2").first).to_have_text("शिकायत")
 
 

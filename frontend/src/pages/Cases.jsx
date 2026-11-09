@@ -1,7 +1,7 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api, upload, withQuery } from '../api.js';
 import { Bars, Line } from '../charts.jsx';
-import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, Flags, formData, Loading, PageHead, Pager, SortTh, Stamp, Status, Tags, Timeline, useAct, useLoad } from '../ui.jsx';
+import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, Flags, formData, Loading, PageHead, Pager, SortTh, Plane, Status, Tags, Timeline, useAct, useLoad } from '../ui.jsx';
 import { useSession } from '../session.jsx';
 import { Dictate } from '../voice.jsx';
 import { useT } from '../i18n.jsx';
@@ -54,7 +54,7 @@ export function Dashboard() {
     <>
       <PageHead title={t('Dashboard')} text="What needs attention at the station today." />
       <div className="stats">
-        <div className="stat"><b>{counts.awaiting}</b><span>{t('Complaints awaiting review')}</span></div>
+        <div className={`stat${counts.awaiting ? ' stat--alert' : ''}`}><b>{counts.awaiting}</b><span>{t('Complaints awaiting review')}</span></div>
         <div className="stat"><b>{counts.open}</b><span>{t('Open cases')}</span></div>
         <div className="stat"><b>{counts.mine}</b><span>{t('Assigned to you')}</span></div>
         <div className="stat"><b>{counts.closed}</b><span>{t('Closed cases')}</span></div>
@@ -238,7 +238,7 @@ export function Case() {
     <>
       <Crumbs trail={[['Cases', '/cases']]} here={t('Case {id}', { id: c.case_id })} />
       <PageHead title={c.title} text={t('{fir}, opened {date} at {station}', { fir: c.fir_no, date: c.date_opened, station: c.station })}>
-        <div className="head-actions"><Tags category={c.category} severity={c.severity} /><Stamp value={c.status} date={[...timeline].reverse().find((e) => e.kind === 'status')?.at || c.date_opened} /><a className="btn btn--small" href={`/api/export/cases/${c.case_id}.pdf`}>{t('Download PDF')}</a></div>
+        <div className="head-actions"><Tags category={c.category} severity={c.severity} /><Plane value={c.status} date={[...timeline].reverse().find((e) => e.kind === 'status')?.at || c.date_opened} /><a className="btn btn--small" href={`/api/export/cases/${c.case_id}.pdf`}>{t('Download PDF')}</a></div>
       </PageHead>
       {flags.length > 0 && <div className="flash flash--error">{t('Needs attention:')}{' '}<Flags items={flags} /></div>}
       {!editable && (
@@ -318,7 +318,7 @@ export function Case() {
             )}
           </section>
 
-          <section className="panel">
+          <section className={`panel${statements.length ? '' : ' panel--compact'}`}>
             <h2>{t('Statements')}</h2>
             {statements.length === 0 && <p className="muted">{t('No statements recorded.')}</p>}
             {statements.map((x) => (
@@ -339,7 +339,7 @@ export function Case() {
             )}
           </section>
 
-          <section className="panel">
+          <section className={`panel${arrests.length ? '' : ' panel--compact'}`}>
             <h2>{t('Arrests')}</h2>
             {arrests.length ? (
               <div className="table-wrap"><table className="data">
@@ -398,7 +398,7 @@ export function Case() {
             )}
           </section>
 
-          <section className="panel">
+          <section className={`panel${reports.length ? '' : ' panel--compact'}`}>
             <h2>{t('Reports')}</h2>
             {reports.length === 0 && <p className="muted">{t('No reports written.')}</p>}
             {reports.map((r) => (
@@ -425,7 +425,7 @@ export function Case() {
             </dl>
             {editable && manualStates.length > 0 && (
               <form onSubmit={submit('/status', 'Case status updated.')} style={{ marginTop: 'var(--space-md)' }}>
-                <Field label="Move to" id="status"><select id="status" name="status">{manualStates.map((s) => <option key={s} value={s}>{t(s)}</option>)}</select></Field>
+                <Field label="Move to" id="status"><select id="status" name="status" defaultValue="" required><option value="" disabled>{t('Choose a status')}</option>{manualStates.map((s) => <option key={s} value={s}>{t(s)}</option>)}</select></Field>
                 <button className="btn btn--primary" type="submit">{t('Update status')}</button>
               </form>
             )}
@@ -452,7 +452,7 @@ export function Case() {
             )}
           </section>
 
-          <section className="panel">
+          <section className={`panel${court_dates.length ? '' : ' panel--compact'}`}>
             <h2>{t('Court dates')}</h2>
             {court_dates.length === 0 && <p className="muted">{t(chargesheet ? 'No court dates set.' : 'Court dates can be set once the chargesheet is filed.')}</p>}
             {court_dates.map((d) => (

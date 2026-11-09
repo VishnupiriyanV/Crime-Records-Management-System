@@ -502,4 +502,5 @@ export default {
   'Could not load this file.': 'यह फ़ाइल लोड नहीं हो सकी।',
   'never': 'कभी नहीं',
   'all': 'सभी',
+  'Choose a status': 'स्थिति चुनें',
 };

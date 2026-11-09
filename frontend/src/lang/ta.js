@@ -502,4 +502,5 @@ export default {
   'Could not load this file.': 'இந்தக் கோப்பை ஏற்ற முடியவில்லை.',
   'never': 'இல்லை',
   'all': 'அனைத்தும்',
+  'Choose a status': 'ஒரு நிலையைத் தேர்ந்தெடுக்கவும்',
 };
