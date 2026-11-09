@@ -8,56 +8,55 @@
   --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
   --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
 
-  /* white ground, black ink, flat tiles in four warm inks; amber owns every live and selected state */
-  --color-paper: #ffffff; --color-paper-2: #f0f0ec; --color-paper-3: #e2e2dc;
-  --color-sheet: #f0f0ec;
-  --color-ink: #111111; --color-ink-2: #2b2b29; --color-muted: #5c5c57;
-  --color-rule: #d8d8d1; --color-rule-2: #8a8a82;
-  --color-accent: #111111; --color-accent-2: #333333; --color-accent-ink: #ffffff; --color-focus: #111111;
-  --tone-amber: #f5a800; --tone-amber-ink: #111111;
-  --tone-red: #d4361f; --tone-red-ink: #ffffff;
-  --tone-green: #25803f; --tone-green-ink: #ffffff;
-  --tone-char: #1d1d1d; --tone-char-ink: #ffffff;
-  --color-error: #b32a16; --color-success: #1f7a39; --color-warn: #8a5a00;
-  --color-error-tint: #f6d9d3; --color-success-tint: #d9ebdd; --color-open-tint: #fbe7b0;
+  /* warm ivory paper, ink-black text, one deep oxblood for actions and the current place */
+  --color-paper: #fbfaf7; --color-paper-2: #f3f1ec; --color-paper-3: #e8e5de;
+  --color-sheet: #ffffff;
+  --color-ink: #1b1a18; --color-ink-2: #36332f; --color-muted: #66625b;
+  --color-rule: #dcd8cf; --color-rule-2: #9a958a;
+  --color-accent: #7b1e2b; --color-accent-2: #62151f; --color-accent-ink: #ffffff; --color-focus: #7b1e2b;
+  --color-link: #7b1e2b;
+  --tone-open: #f3e6c4; --tone-open-ink: #4a3500;
+  --tone-good: #dcebdf; --tone-good-ink: #173d24;
+  --tone-bad: #f4dedb; --tone-bad-ink: #6e1912;
+  --color-error: #a4261f; --color-success: #2f6b3f; --color-warn: #8a5a00;
+  --color-error-tint: #f4dedb; --color-success-tint: #dcebdf; --color-open-tint: #f3e6c4;
 
-  --font-display: "Noto Sans", "Noto Sans Tamil", "Noto Sans Devanagari", system-ui, sans-serif;
+  --font-display: "Noto Serif", "Noto Serif Tamil", "Noto Serif Devanagari", Georgia, serif;
   --font-body: "Noto Sans", "Noto Sans Tamil", "Noto Sans Devanagari", system-ui, sans-serif;
   --font-outlier: "Noto Sans Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  --radius-card: 0; --radius-pill: 0; --rule-hair: 1px; --rule-bar: 2px;
+  --radius-card: 2px; --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px;
   --shadow-card: none;
-  --tracking-display: -0.02em; --display-weight: 300;
-  --gap-tile: 8px;
+  --tracking-display: -0.005em; --display-weight: 600;
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --color-paper: #0b0b0a; --color-paper-2: #1e1e1c; --color-paper-3: #2a2a27;
-  --color-sheet: #1a1a18;
-  --color-ink: #f4f4f1; --color-ink-2: #d9d9d4; --color-muted: #a6a69f;
-  --color-rule: #32322e; --color-rule-2: #6f6f68;
-  --color-accent: #f4f4f1; --color-accent-2: #d9d9d4; --color-accent-ink: #0b0b0a; --color-focus: #f4f4f1;
-  --tone-amber: #f5a800; --tone-amber-ink: #111111;
-  --tone-red: #e8503a; --tone-red-ink: #120805;
-  --tone-green: #3dae5b; --tone-green-ink: #06150b;
-  --tone-char: #2c2c29; --tone-char-ink: #f4f4f1;
-  --color-error: #ff8068; --color-success: #67d083; --color-warn: #e8b04a;
-  --color-error-tint: #3a1a14; --color-success-tint: #14301c; --color-open-tint: #3a2c06;
+  --color-paper: #171513; --color-paper-2: #211e1b; --color-paper-3: #2d2925;
+  --color-sheet: #1e1b18;
+  --color-ink: #efebe3; --color-ink-2: #d8d3c9; --color-muted: #a39e94;
+  --color-rule: #34302b; --color-rule-2: #6d675e;
+  --color-accent: #a63243; --color-accent-2: #bd4456; --color-accent-ink: #ffffff; --color-focus: #e8a0aa;
+  --color-link: #e8a0aa;
+  --tone-open: #3a2e10; --tone-open-ink: #f2dca0;
+  --tone-good: #1b3524; --tone-good-ink: #bfe3c9;
+  --tone-bad: #3d1d19; --tone-bad-ink: #f3c3bc;
+  --color-error: #ff9a8a; --color-success: #7fd197; --color-warn: #e8b04a;
+  --color-error-tint: #3d1d19; --color-success-tint: #1b3524; --color-open-tint: #3a2e10;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --color-paper: #0b0b0a; --color-paper-2: #1e1e1c; --color-paper-3: #2a2a27;
-    --color-sheet: #1a1a18;
-    --color-ink: #f4f4f1; --color-ink-2: #d9d9d4; --color-muted: #a6a69f;
-    --color-rule: #32322e; --color-rule-2: #6f6f68;
-    --color-accent: #f4f4f1; --color-accent-2: #d9d9d4; --color-accent-ink: #0b0b0a; --color-focus: #f4f4f1;
-    --tone-amber: #f5a800; --tone-amber-ink: #111111;
-    --tone-red: #e8503a; --tone-red-ink: #120805;
-    --tone-green: #3dae5b; --tone-green-ink: #06150b;
-    --tone-char: #2c2c29; --tone-char-ink: #f4f4f1;
-    --color-error: #ff8068; --color-success: #67d083; --color-warn: #e8b04a;
-    --color-error-tint: #3a1a14; --color-success-tint: #14301c; --color-open-tint: #3a2c06;
+    --color-paper: #171513; --color-paper-2: #211e1b; --color-paper-3: #2d2925;
+    --color-sheet: #1e1b18;
+    --color-ink: #efebe3; --color-ink-2: #d8d3c9; --color-muted: #a39e94;
+    --color-rule: #34302b; --color-rule-2: #6d675e;
+    --color-accent: #a63243; --color-accent-2: #bd4456; --color-accent-ink: #ffffff; --color-focus: #e8a0aa;
+    --color-link: #e8a0aa;
+    --tone-open: #3a2e10; --tone-open-ink: #f2dca0;
+    --tone-good: #1b3524; --tone-good-ink: #bfe3c9;
+    --tone-bad: #3d1d19; --tone-bad-ink: #f3c3bc;
+    --color-error: #ff9a8a; --color-success: #7fd197; --color-warn: #e8b04a;
+    --color-error-tint: #3d1d19; --color-success-tint: #1b3524; --color-open-tint: #3a2e10;
   }
 }
