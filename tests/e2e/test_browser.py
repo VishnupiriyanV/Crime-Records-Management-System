@@ -112,7 +112,7 @@ def test_dark_mode_and_phone_layout(page):
     page.set_viewport_size({"width": 390, "height": 800})
     for path in ("/dashboard", "/cases", "/reports", "/users", "/audit"):
         page.goto(page.base + path)
-        page.wait_for_selector("h1")
+        page.wait_for_selector("h1, .empty")
         overflow = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
         assert overflow <= 0, f"{path} scrolls sideways by {overflow}px"
 
@@ -230,6 +230,35 @@ def test_tamil_and_hindi_fit_on_a_phone(page):
             expect(page.locator(".who")).to_be_visible()
         for path in ("/complaints", "/complaints/new", "/notifications", "/records", "/profile"):
             page.goto(page.base + path)
-            page.wait_for_selector("h1")
+            page.wait_for_selector("h1, .empty")
+            overflow = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
+            assert overflow <= 0, f"{path} in {code} scrolls sideways by {overflow}px"
+
+
+def test_staff_screens_work_in_tamil_and_hindi(page):
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    sign_in(page, "admin@e2e.test")
+    paths = (
+        "/dashboard", "/complaints", "/complaints/1", "/cases", "/cases/1", "/criminals", "/criminals/new", "/map",
+        "/stations", "/stations/1", "/reports", "/users", "/audit", "/integrations", "/search?q=boat", "/notifications",
+    )
+    for code in ("ta", "hi"):
+        page.select_option(".lang-pick", code)
+        for path in paths:
+            page.goto(page.base + path)
+            page.wait_for_selector("h1, .empty")
+            page.wait_for_timeout(150)
+        # the menu itself is translated, not just the page body
+        assert page.locator(".nav a").first.inner_text() not in ("Dashboard", "")
+    assert errors == []
+
+    # the longer words must not push a phone screen sideways
+    page.set_viewport_size({"width": 390, "height": 800})
+    for code in ("ta", "hi"):
+        page.select_option(".lang-pick", code)
+        for path in paths:
+            page.goto(page.base + path)
+            page.wait_for_selector("h1, .empty")
             overflow = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
             assert overflow <= 0, f"{path} in {code} scrolls sideways by {overflow}px"

@@ -207,8 +207,9 @@ export function Download({ path, params, children }) {
 // the crime type and how serious it was judged to be
 // small red notes for work that has waited too long
 export function Flags({ items }) {
+  const t = useT();
   if (!items || !items.length) return null;
-  return <span className="flags">{items.map((f) => <span key={f.kind} className="badge badge--bad">{f.text}</span>)}</span>;
+  return <span className="flags">{items.map((f) => <span key={f.kind} className="badge badge--bad">{t(f.text)}</span>)}</span>;
 }
 
 export function Tags({ category, severity }) {
@@ -253,12 +254,13 @@ export function Progress({ complaint, kase }) {
 
 // the merged story of a case, oldest first
 export function Timeline({ events }) {
+  const t = useT();
   return (
     <ol className="timeline">
       {events.map((e, i) => (
         <li key={i} className={`timeline-${e.kind}`}>
           <span className="num muted">{e.at.slice(0, 16)}</span>
-          <span>{e.text}{e.who && <span className="muted"> by {e.who}</span>}</span>
+          <span>{e.text}{e.who && <span className="muted"> {t('by {who}', { who: e.who })}</span>}</span>
         </li>
       ))}
     </ol>

@@ -54,7 +54,7 @@ Other settings, all optional on a development machine: `MONGO_URL` (default `mon
 
 ## Tamil and Hindi
 
-The language menu in the top bar switches the screens to Tamil or Hindi and remembers the choice. Translated: the menu, sign in and register, profile, alerts, public records, filing a complaint, the complaint page and its progress, statuses, severities, crime types, the voice buttons and the alerts about a complaint. The staff screens (dashboard, cases, criminals, reports, users) stay in English, and so do error messages from the server and the browser's own file and date controls.
+The language menu in the top bar switches every screen to Tamil or Hindi and remembers the choice. That covers the citizen screens and the staff screens (dashboard, cases and the case file, criminals, reports, users, audit, integrations, search, map, stations), along with statuses, severities, crime types, custody actions and the voice buttons. These stay in English: the case timeline and audit entries the server writes, error messages from the server, anything people typed (titles, descriptions, names, evidence notes), and the browser's own file and date controls.
 
 The words live in `frontend/src/lang/ta.js` and `hi.js`, with the English text as the key. A string with no entry shows in English, so a missing translation never breaks a page. To translate another screen, wrap its text in `t('...')` from `useT()` and add the entry to both files. The translations were written without a native speaker checking them, so have someone who reads Tamil and Hindi review the wording before real use, especially legal terms such as the chargesheet and the case statuses.
 

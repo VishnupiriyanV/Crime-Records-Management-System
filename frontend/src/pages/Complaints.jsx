@@ -22,7 +22,7 @@ export function Complaints() {
         text={citizen ? 'Everything you have filed, and where it stands.' : 'Every complaint filed at any station.'}
       >
         <div className="head-actions">
-          <Download path="/export/complaints.csv" params={params}>Export CSV</Download>
+          <Download path="/export/complaints.csv" params={params}>{t('Export CSV')}</Download>
           {citizen && <Link className="btn btn--primary" to="/complaints/new">{t('File a complaint')}</Link>}
         </div>
       </PageHead>
@@ -58,18 +58,16 @@ export function Complaints() {
         <div className="panel">
           {data.items.length === 0 ? (
             query.q || query.status || query.category || query.severity ? (
-              <Empty action={<Link className="btn" to="/complaints">{t('Clear filters')}</Link>}>No complaints match those filters.</Empty>
+              <Empty action={<Link className="btn" to="/complaints">{t('Clear filters')}</Link>}>{t('No complaints match those filters.')}</Empty>
             ) : citizen ? (
-              <Empty action={<Link className="btn btn--primary" to="/complaints/new">{t('File a complaint')}</Link>}>
-                You have not filed a complaint yet. Describe what happened and where, and the station will review it.
-              </Empty>
-            ) : <Empty>No complaints have been filed yet.</Empty>
+              <Empty action={<Link className="btn btn--primary" to="/complaints/new">{t('File a complaint')}</Link>}>{t('You have not filed a complaint yet. Describe what happened and where, and the station will review it.')}</Empty>
+            ) : <Empty>{t('No complaints have been filed yet.')}</Empty>
           ) : (
             <>
               <div className="table-wrap"><table className="data">
                 <thead><tr>
-                  <SortTh id="no">FIR no.</SortTh><SortTh id="title">Title</SortTh><SortTh id="category">Category</SortTh>{!citizen && <SortTh id="by">Filed by</SortTh>}
-                  <SortTh id="location">Location</SortTh><SortTh id="filed">Filed on</SortTh><SortTh id="status">Status</SortTh><SortTh id="case">Case</SortTh>
+                  <SortTh id="no">{t('FIR no.')}</SortTh><SortTh id="title">{t('Title')}</SortTh><SortTh id="category">{t('Category')}</SortTh>{!citizen && <SortTh id="by">{t('Filed by')}</SortTh>}
+                  <SortTh id="location">{t('Location')}</SortTh><SortTh id="filed">{t('Filed on')}</SortTh><SortTh id="status">{t('Status')}</SortTh><SortTh id="case">{t('Case')}</SortTh>
                 </tr></thead>
                 <tbody>
                   {data.items.map((c) => (
@@ -149,7 +147,7 @@ export function NewComplaint() {
 
   return (
     <>
-      <PageHead title="File a complaint" text="The station reviews every complaint before a case is opened." />
+      <PageHead title={t('File a complaint')} text="The station reviews every complaint before a case is opened." />
       <form className="panel form-narrow" onSubmit={submit} ref={formRef}>
         <SpeakComplaint />
         <Field label="Short title" id="title"><input id="title" name="title" maxLength={120} required /></Field>
@@ -181,7 +179,7 @@ export function NewComplaint() {
             <ul className="trail">
               {similar.map((x) => (
                 <li key={x.complaint_id}>
-                  <span><Link to={`/complaints/${x.complaint_id}`}>{x.fir_no} {x.title}</Link> <span className="muted">{t(x.status)}, {x.reasons.join(', ')}</span></span>
+                  <span><Link to={`/complaints/${x.complaint_id}`}>{x.fir_no} {x.title}</Link> <span className="muted">{t(x.status)}, {x.reasons.map((r) => t(r)).join(', ')}</span></span>
                 </li>
               ))}
             </ul>
@@ -242,7 +240,7 @@ export function Complaint() {
     <>
       <Crumbs trail={[['Complaints', '/complaints']]} here={t('No. {id}', { id: c.complaint_id })} />
       <PageHead title={c.title} text={t('{fir}, filed by {name} on {date}', { fir: c.fir_no, name: c.citizen_name, date: c.date_filed })}><div className="head-actions"><Tags category={c.category} severity={c.severity} /><Status value={c.status} /></div></PageHead>
-      {flags && flags.length > 0 && <div className="flash flash--error">Needs attention: <Flags items={flags} /></div>}
+      {flags && flags.length > 0 && <div className="flash flash--error">{t('Needs attention:')}{' '}<Flags items={flags} /></div>}
       <Progress complaint={c} kase={kase} />
 
       <div className="cols">
@@ -303,7 +301,7 @@ export function Complaint() {
                   <dt>{t('Officer')}</dt><dd>{kase.officer_name || t('Not assigned yet')}</dd>
                   <dt>{t('Opened')}</dt><dd className="num">{kase.date_opened}</dd>
                 </dl>
-                {staff && <p style={{ marginTop: 'var(--space-md)' }}><Link className="btn" to={`/cases/${kase.case_id}`}>Open case file</Link></p>}
+                {staff && <p style={{ marginTop: 'var(--space-md)' }}><Link className="btn" to={`/cases/${kase.case_id}`}>{t('Open case file')}</Link></p>}
               </>
             ) : (
               <p className="muted">
@@ -316,11 +314,11 @@ export function Complaint() {
 
           {staff && (
             <section className="panel">
-              <h2>Classification</h2>
+              <h2>{t('Classification')}</h2>
               <form onSubmit={classify}>
-                <Field label="Category" id="cl-category"><select id="cl-category" name="category" defaultValue={c.category}>{categories.map((x) => <option key={x}>{x}</option>)}</select></Field>
-                <Field label="Severity" id="cl-severity"><select id="cl-severity" name="severity" defaultValue={c.severity}>{severities.map((x) => <option key={x}>{x}</option>)}</select></Field>
-                <button className="btn" type="submit">Save</button>
+                <Field label="Category" id="cl-category"><select id="cl-category" name="category" defaultValue={c.category}>{categories.map((x) => <option key={x} value={x}>{t(x)}</option>)}</select></Field>
+                <Field label="Severity" id="cl-severity"><select id="cl-severity" name="severity" defaultValue={c.severity}>{severities.map((x) => <option key={x} value={x}>{t(x)}</option>)}</select></Field>
+                <button className="btn" type="submit">{t('Save')}</button>
               </form>
             </section>
           )}
@@ -329,15 +327,15 @@ export function Complaint() {
 
           {staff && c.status !== 'Rejected' && !kase && (
             <section className="panel">
-              <h2>Review</h2>
+              <h2>{t('Review')}</h2>
               {c.status === 'Filed' ? (
                 <>
-                  <button className="btn btn--primary" onClick={() => post('/verify', {}, 'Complaint verified.')}>Verify complaint</button>
+                  <button className="btn btn--primary" onClick={() => post('/verify', {}, 'Complaint verified.')}>{t('Verify complaint')}</button>
                   <details style={{ marginTop: 'var(--space-md)' }}>
-                    <summary>Reject with a reason</summary>
+                    <summary>{t('Reject with a reason')}</summary>
                     <form onSubmit={(e) => post('/reject', formData(e), 'Complaint rejected.')}>
                       <Field label="Reason" id="reason"><textarea id="reason" name="reason" required /></Field>
-                      <button className="btn btn--danger" type="submit">Reject complaint</button>
+                      <button className="btn btn--danger" type="submit">{t('Reject complaint')}</button>
                     </form>
                   </details>
                 </>
@@ -346,18 +344,18 @@ export function Complaint() {
                   <Field label="Station" id="station_id">
                     <select id="station_id" name="station_id" required>{stations.map((s) => <option key={s.station_id} value={s.station_id}>{s.name}</option>)}</select>
                   </Field>
-                  <button className="btn btn--primary" type="submit">Register case</button>
+                  <button className="btn btn--primary" type="submit">{t('Register case')}</button>
                 </form>
               )}
             </section>
           )}
 
           <section className="panel">
-            <h2>History</h2>
+            <h2>{t('History')}</h2>
             <ul className="trail">
               {history.map((h, i) => (
                 <li key={i}>
-                  <span>{h.new_status}{h.who && <span className="muted"> by {h.who}</span>}</span>
+                  <span>{h.new_status}{h.who && <span className="muted"> {t('by {who}', { who: h.who })}</span>}</span>
                   <span className="num muted">{h.changed_at.slice(0, 10)}</span>
                 </li>
               ))}
@@ -371,19 +369,20 @@ export function Complaint() {
 
 // other complaints that look like this one, so a duplicate can be spotted before it is worked twice
 function Similar({ id, canReject, reject }) {
+  const t = useT();
   const { data } = useLoad(`/complaints/${id}/similar`);
   if (!data || data.items.length === 0) return null;
   return (
     <section className="panel">
-      <h2>Possible duplicates</h2>
+      <h2>{t('Possible duplicates')}</h2>
       <ul className="trail">
         {data.items.map((s) => (
           <li key={s.complaint_id}>
             <span>
               <Link to={`/complaints/${s.complaint_id}`}>{s.fir_no}</Link> {s.title}
-              <div className="muted">{s.reasons.join(', ')}. {s.status}.</div>
+              <div className="muted">{s.reasons.map((r) => t(r)).join(', ')}. {t(s.status)}.</div>
             </span>
-            {canReject && <button className="link-btn" onClick={() => reject(`Duplicate of ${s.fir_no}`)}>Reject as duplicate</button>}
+            {canReject && <button className="link-btn" onClick={() => reject(`Duplicate of ${s.fir_no}`)}>{t('Reject as duplicate')}</button>}
           </li>
         ))}
       </ul>
