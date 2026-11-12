@@ -28,3 +28,6 @@ DESIGN.md
 .hermes/
 .opencode/
 .pi/
+
+# lab submission documents stay local
+submission/

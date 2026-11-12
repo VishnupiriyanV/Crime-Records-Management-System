@@ -49,8 +49,8 @@ main { flex: 1; padding-block: var(--space-xl) var(--space-2xl); }
 
 /* figures: a strip of numbers divided by hairlines, like the summary line of a report */
 .stats { display: flex; flex-wrap: wrap; margin-bottom: var(--space-xl); border-block: 1px solid var(--color-rule); }
-.stat { flex: 1 1 150px; display: flex; flex-direction: column-reverse; justify-content: flex-end; gap: var(--space-3xs); padding: var(--space-md) var(--space-md) var(--space-md) 0; margin-left: var(--space-md); border-left: 1px solid var(--color-rule); color: var(--color-ink); text-decoration: none; }
-.stat:first-child { margin-left: 0; border-left: 0; }
+.stat { flex: 1 1 150px; display: flex; flex-direction: column-reverse; justify-content: flex-end; gap: var(--space-3xs); padding: var(--space-md); border-left: 1px solid var(--color-rule); color: var(--color-ink); text-decoration: none; }
+.stat:first-child { padding-left: 0; border-left: 0; }
 .stat b { font: 600 2.25rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
 .stat span { font-size: var(--text-sm); color: var(--color-muted); }
 a.stat:hover span { color: var(--color-ink); text-decoration: underline; }
@@ -288,7 +288,7 @@ html[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) grayscale(1) sepi
   .theme-btn { order: 4; }
   .search { order: 5; flex: 1 1 100%; min-width: 0; max-width: none; margin-left: 0; }
   .stat { flex-basis: 40%; }
-  .stat:nth-child(odd) { margin-left: 0; border-left: 0; }
+  .stat:nth-child(odd) { padding-left: 0; border-left: 0; }
   /* a row becomes a labelled block, so the status stays in view instead of scrolling off to the right */
   .table-wrap { overflow: visible; }
   .table-wrap table.data { min-width: 0; }
