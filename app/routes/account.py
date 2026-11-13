@@ -117,6 +117,7 @@ def forgot(body: Forgot, request: Request):
     # the link must point at our own address, never at whatever Host header the request came with
     base = mailer.base_url() or ("" if production() else str(request.base_url).rstrip("/"))
     if not base:
+        mailer.log.warning("Password reset asked for %s but CRMS_BASE_URL is not set, so no link can be built.", user["email"])
         return reply
     token = secrets.token_urlsafe(32)
     mdb().password_resets.insert_one({

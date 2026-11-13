@@ -282,6 +282,7 @@ The app needs a place to run, a relational database and MongoDB. A combination t
 | `CRMS_DB_URL` | The Neon connection string |
 | `MONGO_URL` | The Atlas address |
 | `CRMS_ADMIN_EMAIL`, `CRMS_ADMIN_PASSWORD` | The first admin (password of 12 or more characters) |
+| `CRMS_BASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Optional. Needed for password-reset e-mails and alerts. `CRMS_BASE_URL` is the site's own address, for example `https://crms.onrender.com` |
 
 `CRMS_SECRET` is generated for you. On the first start the app creates the tables and the admin. Sign in, then add police stations on the Users page.
 

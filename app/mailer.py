@@ -6,6 +6,12 @@ import threading
 from email.message import EmailMessage
 
 log = logging.getLogger("crms.mail")
+# uvicorn only sets up its own loggers; this one writes to the same console so the host's log shows mail results
+log.setLevel(logging.INFO)
+if not log.handlers:
+    _out = logging.StreamHandler()
+    _out.setFormatter(logging.Formatter("%(levelname)s:     %(name)s: %(message)s"))
+    log.addHandler(_out)
 
 
 def configured():
@@ -35,6 +41,7 @@ def _deliver(message):
             if os.environ.get("SMTP_USER"):
                 server.login(os.environ["SMTP_USER"], os.environ.get("SMTP_PASSWORD", ""))
             server.send_message(message)
+        log.info("E-mail \u201c%s\u201d handed to %s for %s.", message["Subject"], host, message["To"])
     except Exception as err:  # a mail problem must never break the action that caused it
         log.warning("Could not send e-mail to %s: %s", message["To"], err)
 
@@ -45,6 +52,9 @@ def send(to, subject, text, wait=False):
         # on a development machine the message is shown here, which is how a reset link is found without a mail server
         if os.environ.get("CRMS_ENV") != "production":
             log.warning("E-mail not set up (SMTP_HOST). Would send to %s: %s\n%s", to, subject, text)
+        else:
+            # never the text: it can hold a reset link
+            log.warning("Not sending \u201c%s\u201d to %s: SMTP_HOST is not set on this server.", subject, to)
         return False
     message = EmailMessage()
     message["To"] = to

@@ -15,3 +15,16 @@ services:
         sync: false
       - key: CRMS_ADMIN_PASSWORD
         sync: false
+      # e-mail for password resets and alerts; leave them blank to run without e-mail
+      - key: CRMS_BASE_URL
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
