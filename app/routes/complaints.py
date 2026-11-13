@@ -226,10 +226,11 @@ def create(body: NewComplaint, user=login_required("citizen")):
         last["title"], last["description"], last["location"], str(last["incident_date"]),
     ) == values:
         return {"complaint_id": last["complaint_id"]}
+    # the date comes from here, not the database default, so the double-click check above compares like with like
     complaint_id = run(
-        "INSERT INTO complaint (citizen_id, title, description, location, incident_date, category, latitude, longitude)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        citizen_id, *values, category, lat, lng,
+        "INSERT INTO complaint (citizen_id, title, description, location, incident_date, category, latitude, longitude, date_filed)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        citizen_id, *values, category, lat, lng, date.today().isoformat(),
     )
     get_db().commit()
     log_status("complaint", complaint_id, None, "Filed", user["user_id"])
