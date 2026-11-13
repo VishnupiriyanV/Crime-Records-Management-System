@@ -77,7 +77,7 @@ def test_a_citizen_can_withdraw_before_review_only(make_client):
 
 def test_reset_link_sets_a_new_password_once(make_client, monkeypatch):
     sent = []
-    monkeypatch.setattr(mailer, "send", lambda to, subject, text, wait=False: sent.append((to, text)) or True)
+    monkeypatch.setattr(mailer, "send", lambda to, subject, text, wait=False, on_fail=None: sent.append((to, text)) or True)
     guest = make_client()
     assert guest.post("/api/auth/forgot", json={"email": "nobody@t.test"}).json() == {"ok": True}
     assert sent == []  # same answer, nothing sent
@@ -101,7 +101,7 @@ def stored_token_is_hashed(token):
 
 def test_an_expired_link_and_the_hourly_limit(make_client, monkeypatch):
     sent = []
-    monkeypatch.setattr(mailer, "send", lambda to, subject, text, wait=False: sent.append(text) or True)
+    monkeypatch.setattr(mailer, "send", lambda to, subject, text, wait=False, on_fail=None: sent.append(text) or True)
     guest = make_client()
     for _ in range(5):
         guest.post("/api/auth/forgot", json={"email": "asha@t.test"})
@@ -127,7 +127,7 @@ def test_an_admin_can_issue_a_temporary_password(make_client):
 
 def test_alerts_go_out_by_email_when_a_mail_server_is_set(make_client, monkeypatch):
     sent = []
-    monkeypatch.setattr(mailer, "send", lambda to, subject, text, wait=False: sent.append((to, subject, text)) or True)
+    monkeypatch.setattr(mailer, "send", lambda to, subject, text, wait=False, on_fail=None: sent.append((to, subject, text)) or True)
     asha, officer = make_client("asha@t.test"), make_client("officer@t.test")
     file_complaint(asha)
     officer.post("/api/complaints/1/verify")
@@ -142,7 +142,7 @@ def test_alerts_go_out_by_email_when_a_mail_server_is_set(make_client, monkeypat
 
 def test_a_person_can_turn_alerts_off(make_client, monkeypatch):
     sent = []
-    monkeypatch.setattr(mailer, "send", lambda to, subject, text, wait=False: sent.append(to) or True)
+    monkeypatch.setattr(mailer, "send", lambda to, subject, text, wait=False, on_fail=None: sent.append(to) or True)
     monkeypatch.setenv("SMTP_HOST", "mail.test")
     asha, officer = make_client("asha@t.test"), make_client("officer@t.test")
     assert asha.get("/api/profile").json()["email_alerts"] is True
@@ -198,3 +198,29 @@ def test_an_uploaded_file_is_fingerprinted_and_a_swap_is_caught(make_client):
     mdb().attachment_files.update_one({"attachment_id": stored["attachment_id"]}, {"$set": {"data": Binary(b"\x89PNG swapped")}})
     report = officer.get("/api/cases/1/integrity").json()
     assert report["ok"] is False and any("rack.png" in p and "fingerprint" in p for p in report["problems"])
+
+
+def test_links_that_could_not_be_sent_do_not_use_up_the_hourly_limit(make_client, monkeypatch):
+    class Now:  # run the background send on the spot so the test can look at the result
+        def __init__(self, target, args=(), daemon=None):
+            self.target, self.args = target, args
+
+        def start(self):
+            self.target(*self.args)
+
+    monkeypatch.setattr(mailer.threading, "Thread", Now)
+    monkeypatch.setenv("SMTP_HOST", "mail.test")
+    monkeypatch.setenv("CRMS_BASE_URL", "https://crms.example")
+    tried = []
+    guest = make_client()
+
+    monkeypatch.setattr(mailer, "_deliver", lambda message: tried.append(1) or False)  # the mail server cannot be reached
+    for _ in range(5):
+        guest.post("/api/auth/forgot", json={"email": "asha@t.test"})
+    assert len(tried) == 5 and mdb().password_resets.count_documents({}) == 0
+
+    monkeypatch.setattr(mailer, "_deliver", lambda message: tried.append(1) or True)  # it is back
+    for _ in range(5):
+        guest.post("/api/auth/forgot", json={"email": "asha@t.test"})
+    assert len(tried) == 5 + 3  # now the limit of three an hour applies
+    assert mdb().password_resets.count_documents({}) == 3

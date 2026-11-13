@@ -190,7 +190,7 @@ Keep `CRMS_SECRET` the same across restarts and restores: a different secret mak
 
 <br>
 
-**Forgot password.** The sign-in page links to a reset form. It always answers the same way, whether or not the address has an account, and sends a one-hour link (three requests an hour per account at most). Only a hash of the link's token is stored, and it can be used once. The link always points at `CRMS_BASE_URL`, never at the address the request came from; on a development machine without it, the request's own address is used.
+**Forgot password.** The sign-in page links to a reset form. It always answers the same way, whether or not the address has an account, and sends a one-hour link (three an hour per account at most; a link that could not be sent does not count). Only a hash of the link's token is stored, and it can be used once. The link always points at `CRMS_BASE_URL`, never at the address the request came from; on a development machine without it, the request's own address is used.
 
 **No mail server?** Set `SMTP_HOST` to turn e-mail on. Without it, nothing is sent: on a development machine the message (with the reset link) is written to the server log, and in production it is not logged at all. An admin can open **Users**, choose **Reset password**, and read the temporary password to the person; it is shown once and the person should change it on their profile page.
 

@@ -124,14 +124,17 @@ def forgot(body: Forgot, request: Request):
         mailer.log.warning("Password reset asked for %s but CRMS_BASE_URL is not set, so no link can be built.", user["email"])
         return reply
     token = secrets.token_urlsafe(32)
+    fingerprint = _fingerprint(token)
     mdb().password_resets.insert_one({
-        "hash": _fingerprint(token), "user_id": user["user_id"], "created": time.time(), "expires": time.time() + RESET_SECONDS,
+        "hash": fingerprint, "user_id": user["user_id"], "created": time.time(), "expires": time.time() + RESET_SECONDS,
     })
     handed = mailer.send(
         user["email"], "CRMS: reset your password",
         f"Hello {user['name']},\n\nSomeone asked to reset the password for your CRMS account. "
         f"Open this link within an hour to choose a new one:\n\n{base}/reset?token={token}\n\n"
         "If this was not you, ignore this e-mail; your password has not changed.",
+        # a link that never left the server must not use up one of the three an hour, or an outage would lock people out
+        on_fail=lambda: mdb().password_resets.delete_one({"hash": fingerprint}),
     )
     mailer.log.info("Password reset link for %s %s.", user["email"], "queued for sending" if handed else "was made but could not be sent (see the line above)")
     return reply

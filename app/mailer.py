@@ -28,6 +28,7 @@ def alerts_enabled():
 
 
 def _deliver(message):
+    """Talk to the mail server; True when it accepted the message."""
     host = os.environ["SMTP_HOST"]
     port = int(os.environ.get("SMTP_PORT", "587"))
     try:
@@ -42,12 +43,26 @@ def _deliver(message):
                 server.login(os.environ["SMTP_USER"], os.environ.get("SMTP_PASSWORD", ""))
             server.send_message(message)
         log.info("E-mail \u201c%s\u201d handed to %s for %s.", message["Subject"], host, message["To"])
+        return True
     except Exception as err:  # a mail problem must never break the action that caused it
         log.warning("Could not send e-mail to %s: %s", message["To"], err)
+        return False
 
 
-def send(to, subject, text, wait=False):
-    """Queue a plain-text e-mail; returns True if one was handed to the mail server."""
+def _failed(on_fail):
+    if on_fail:
+        try:
+            on_fail()
+        except Exception as err:
+            log.warning("Could not undo after a failed e-mail: %s", err)
+
+
+def send(to, subject, text, wait=False, on_fail=None):
+    """Queue a plain-text e-mail; returns True if one was handed to the mail server.
+
+    `on_fail` is called, with no arguments, if the message turns out not to have been sent (no mail server set up,
+    or the server refused or could not be reached), so the caller can undo whatever it recorded for it.
+    """
     if not configured():
         # on a development machine the message is shown here, which is how a reset link is found without a mail server
         if os.environ.get("CRMS_ENV") != "production":
@@ -55,14 +70,19 @@ def send(to, subject, text, wait=False):
         else:
             # never the text: it can hold a reset link
             log.warning("Not sending \u201c%s\u201d to %s: SMTP_HOST is not set on this server.", subject, to)
+        _failed(on_fail)
         return False
     message = EmailMessage()
     message["To"] = to
     message["From"] = os.environ.get("SMTP_FROM") or os.environ.get("SMTP_USER") or "crms@localhost"
     message["Subject"] = subject
     message.set_content(text)
+    def work():
+        if not _deliver(message):
+            _failed(on_fail)
+
     if wait:
-        _deliver(message)
+        work()
     else:
-        threading.Thread(target=_deliver, args=(message,), daemon=True).start()
+        threading.Thread(target=work, daemon=True).start()
     return True
