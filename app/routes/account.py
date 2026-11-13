@@ -109,10 +109,14 @@ def _fingerprint(token):
 def forgot(body: Forgot, request: Request):
     """Mail a reset link. The answer is the same whether or not the address has an account."""
     reply = {"ok": True}
-    user = one("SELECT user_id, name, email FROM users WHERE email = ? AND active = 1", body.email.strip().lower())
+    asked = body.email.strip().lower()
+    mailer.log.info("Password reset asked for %s (e-mail set up: %s, CRMS_BASE_URL set: %s).", asked, mailer.configured(), bool(mailer.base_url()))
+    user = one("SELECT user_id, name, email FROM users WHERE email = ? AND active = 1", asked)
     if user is None:
+        mailer.log.info("Password reset for %s: no active account has that address, so nothing is sent.", asked)
         return reply
     if mdb().password_resets.count_documents({"user_id": user["user_id"], "created": {"$gt": time.time() - RESET_SECONDS}}) >= 3:
+        mailer.log.warning("Password reset for %s skipped: three links were already asked for in the last hour.", asked)
         return reply  # three a hour is plenty; more is someone else's mailbox being flooded
     # the link must point at our own address, never at whatever Host header the request came with
     base = mailer.base_url() or ("" if production() else str(request.base_url).rstrip("/"))
@@ -123,12 +127,13 @@ def forgot(body: Forgot, request: Request):
     mdb().password_resets.insert_one({
         "hash": _fingerprint(token), "user_id": user["user_id"], "created": time.time(), "expires": time.time() + RESET_SECONDS,
     })
-    mailer.send(
+    handed = mailer.send(
         user["email"], "CRMS: reset your password",
         f"Hello {user['name']},\n\nSomeone asked to reset the password for your CRMS account. "
         f"Open this link within an hour to choose a new one:\n\n{base}/reset?token={token}\n\n"
         "If this was not you, ignore this e-mail; your password has not changed.",
     )
+    mailer.log.info("Password reset link for %s %s.", user["email"], "queued for sending" if handed else "was made but could not be sent (see the line above)")
     return reply
 
 
