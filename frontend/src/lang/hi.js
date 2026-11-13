@@ -190,6 +190,7 @@ export default {
   'Dictate': 'बोलकर लिखें',
   'Stop': 'रोकें',
   "Uses your browser's speech service.": 'आपके ब्राउज़र की स्पीच सेवा का उपयोग करता है।',
+  'Speaking a complaint needs Chrome, Edge or Safari.': 'बोलकर शिकायत दर्ज करने के लिए Chrome, Edge या Safari चाहिए।',
   'Spoken language': 'बोलने की भाषा',
   'what happened': 'क्या हुआ',
   'title': 'शीर्षक',

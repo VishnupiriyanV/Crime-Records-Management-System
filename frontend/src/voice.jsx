@@ -137,7 +137,7 @@ export function SpeakComplaint() {
       }
     },
   );
-  if (!Recognition) return null;
+  if (!Recognition) return <p className="muted">{t('Speaking a complaint needs Chrome, Edge or Safari.')}</p>;
 
   const toggle = () => {
     if (listening) return stop();

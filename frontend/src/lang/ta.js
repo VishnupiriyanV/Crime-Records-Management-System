@@ -190,6 +190,7 @@ export default {
   'Dictate': 'பேசி எழுது',
   'Stop': 'நிறுத்து',
   "Uses your browser's speech service.": 'உங்கள் உலாவியின் பேச்சு சேவையைப் பயன்படுத்துகிறது.',
+  'Speaking a complaint needs Chrome, Edge or Safari.': 'புகாரைப் பேசிப் பதிவு செய்ய Chrome, Edge அல்லது Safari தேவை.',
   'Spoken language': 'பேசும் மொழி',
   'what happened': 'என்ன நடந்தது',
   'title': 'தலைப்பு',
