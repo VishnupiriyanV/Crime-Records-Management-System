@@ -25,7 +25,7 @@ TABLES = [
 COLLECTIONS = [
     "evidence", "notes", "notifications", "status_log", "attachments", "attachment_files",
     "statements", "arrests", "court_dates", "chargesheets", "officer_photos", "api_tokens", "webhooks",
-    "ledger", "ledger_heads",
+    "ledger", "ledger_heads", "saved_views",
 ]
 
 

@@ -11,7 +11,7 @@ from .auth import check_csrf
 from .lifecycle import RuleError
 from .main_config import ROOT, database_url, mongo_name, mongo_url, production, secret_key
 from .routes import (
-    account, admin, attachments, attention, audit, cases, complaints, criminals, exports, hotspots, integrations, search, stations,
+    account, admin, attachments, attention, audit, cases, complaints, criminals, exports, hotspots, integrations, search, stations, views,
 )
 
 DIST = ROOT / "frontend" / "dist"
@@ -51,7 +51,7 @@ def create_app(database=None, secret=None, mongo_client=None):
         return {"ok": True}
 
     for module in (
-        account, complaints, attachments, attention, cases, criminals, admin, search, exports, audit, hotspots, stations, integrations,
+        account, complaints, attachments, attention, cases, criminals, admin, search, exports, audit, hotspots, stations, integrations, views,
     ):
         app.include_router(module.router)
 

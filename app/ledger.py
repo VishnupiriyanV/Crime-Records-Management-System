@@ -104,6 +104,20 @@ def _seconds_between(earlier, later):
         return 0
 
 
+def _file_problems(complaint_id):
+    """Uploaded files are fingerprinted when stored; a file whose bytes no longer match is reported."""
+    case = one("SELECT case_id FROM crime_case WHERE complaint_id = ?", complaint_id)
+    owners = [{"complaint_id": complaint_id}] + ([{"case_id": case["case_id"]}] if case else [])
+    problems = []
+    for doc in mdb().attachments.find({"$or": owners}):
+        if not doc.get("sha256"):
+            continue
+        stored = mdb().attachment_files.find_one({"attachment_id": doc["attachment_id"]})
+        if stored is None or hashlib.sha256(bytes(stored["data"])).hexdigest() != doc["sha256"]:
+            problems.append(f"The file {doc['filename']} no longer matches the fingerprint taken when it was uploaded.")
+    return problems
+
+
 def verify(complaint_id, events):
     rows = entries(complaint_id)
     problems, prev = [], ""
@@ -128,6 +142,7 @@ def verify(complaint_id, events):
     unsealed = [e for e in events if key_of(e) not in sealed_keys]
     if unsealed:
         problems.append(f"{len(unsealed)} recorded event{'s are' if len(unsealed) != 1 else ' is'} not covered by the seal.")
+    problems.extend(_file_problems(complaint_id))
     late = [
         row["seq"] for row in rows
         if not row["imported"] and _seconds_between(row["event"]["at"], row["sealed_at"]) > LATE_SECONDS

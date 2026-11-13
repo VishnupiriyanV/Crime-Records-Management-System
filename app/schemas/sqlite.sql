@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS users (
     email    TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL,
     role     TEXT NOT NULL CHECK (role IN ('citizen', 'officer', 'admin')),
-    active   INTEGER NOT NULL DEFAULT 1
+    active   INTEGER NOT NULL DEFAULT 1,
+    email_alerts INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS police_station (

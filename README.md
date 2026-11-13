@@ -9,7 +9,7 @@
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-documents-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
 [![SQL](https://img.shields.io/badge/SQL-SQLite%20%7C%20PostgreSQL%20%7C%20MySQL-336791)](#choosing-the-relational-database)
-[![Tests](https://img.shields.io/badge/tests-67%20API%20%2B%209%20browser-brightgreen)](#testing)
+[![Tests](https://img.shields.io/badge/tests-79%20API%20%2B%2013%20browser-brightgreen)](#testing)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 [Features](#features) ·
@@ -47,20 +47,23 @@ CRMS is a web application for a police station. Citizens file and track complain
 **For citizens**
 - File a complaint with a map pin and up to five attached files, or speak it in English, Tamil or Hindi.
 - Get a warning before filing a complaint that looks like one already made.
-- Follow the complaint through four stages and get a notification at each step, with a reason when it is rejected.
+- Follow the complaint through four stages and get a notification (and, if the station has set up e-mail, an e-mail) at each step, with a reason when it is rejected.
+- Correct a complaint, or withdraw it, until the station has reviewed it. What it said before stays in the record.
 
 **For officers**
 - A review queue, a list of open cases and a **Needs attention** panel for work that has waited too long.
+- **Take this case** on any case nobody has yet, and saved views to reopen a filtered list (for example "open cases idle for two weeks") in one click.
 - A full case file: evidence with chain of custody, statements, arrests, chargesheet, court dates and outcomes, linked people and reports.
 - A register of criminal records with a wanted flag, one search box over everything, and a map of the busiest areas.
 - A PDF of the case file with a verification seal, and CSV exports of every list.
 
 **For admins**
-- Accounts, roles and stations, an audit log, charts and reports.
+- Accounts, roles and stations, an audit log, charts and reports, and a temporary password for anyone who cannot use the e-mail reset link.
 - API tokens, a JSON export and signed webhooks for connecting other systems.
 
 **Across the app**
-- A tamper-evident ledger: every case event is sealed into a hash chain that can be verified at any time.
+- A tamper-evident ledger: every case event is sealed into a hash chain that can be verified at any time, and every uploaded file is fingerprinted (SHA-256) so a swapped file is caught too.
+- Password reset by e-mail link, and e-mail alerts that each person can turn off on their profile.
 - English, Tamil and Hindi; light and dark mode; keyboard shortcuts (press `?`); a layout that works on a phone.
 - FIR numbers, crime categories, sortable lists, in-page preview of uploaded files, and backups of both databases.
 
@@ -133,6 +136,11 @@ All settings are environment variables and all are optional on a development mac
 | `CRMS_ENV` | `production` makes `CRMS_SECRET` mandatory and the session cookie HTTPS-only | development |
 | `CRMS_ADMIN_EMAIL`, `CRMS_ADMIN_PASSWORD` | Create the first admin on start-up (password of 12 or more characters) | unset |
 | `CRMS_SAMPLE_DATA` | Load the demo accounts and this many sample complaints on start-up | unset |
+| `SMTP_HOST`, `SMTP_PORT` | Mail server for password resets and alerts. Nothing is sent without `SMTP_HOST` | unset, `587` |
+| `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Mail login and the sender address | unset |
+| `SMTP_STARTTLS` | Set to `0` to turn off STARTTLS (port 465 uses SSL automatically) | on |
+| `CRMS_BASE_URL` | The public address of the site, for links in e-mails, for example `https://crms.example`. Required in production for reset links | unset |
+| `CRMS_EMAIL_ALERTS` | Set to `0` to send only password resets, never alerts | on |
 
 ## Guides
 
@@ -169,9 +177,37 @@ Every event on a case is sealed into a ledger: status changes, assignments, evid
 
 The case page shows each event with its time, who did it, the detail, and its seal (`#7 3f9a1c2b`), and **Verify integrity** checks everything again: the chain, that no sealed record was edited or deleted, and that no record exists that was never sealed. Looking at a case never seals anything new, so a forged record cannot be blessed by a page view. A case that existed before this feature is sealed once, the first time it is opened, and marked imported; tampering before that moment cannot be detected.
 
+Every uploaded file (on a complaint or on evidence) is fingerprinted with SHA-256 when it is stored. The fingerprint shows beside the file and on the timeline, and **Verify integrity** recomputes it, so a file whose bytes were swapped in the database is reported even though its record looks untouched. Files uploaded before this feature have no fingerprint and are not checked.
+
 Keep `CRMS_SECRET` the same across restarts and restores: a different secret makes every old entry fail verification. A backup includes the ledger.
 
 `GET /api/export/cases/{id}.pdf` is a printable case file with a letterhead, the case summary, tables for people, evidence with its custody chain, arrests and court dates, the ledger with each entry's seal, a verification box with the chain head, and signature lines. Text in Tamil or Hindi cannot be printed with the built-in PDF fonts and shows as `?`; the PDF says so when that happens.
+
+</details>
+
+<details>
+<summary><b>Passwords and e-mail</b></summary>
+
+<br>
+
+**Forgot password.** The sign-in page links to a reset form. It always answers the same way, whether or not the address has an account, and sends a one-hour link (three requests an hour per account at most). Only a hash of the link's token is stored, and it can be used once. The link always points at `CRMS_BASE_URL`, never at the address the request came from; on a development machine without it, the request's own address is used.
+
+**No mail server?** Set `SMTP_HOST` to turn e-mail on. Without it, nothing is sent: on a development machine the message (with the reset link) is written to the server log, and in production it is not logged at all. An admin can open **Users**, choose **Reset password**, and read the temporary password to the person; it is shown once and the person should change it on their profile page.
+
+**Alerts by e-mail.** When a mail server is set up, the notices people see in the app (complaint verified or rejected, case opened or moved, court date set, case assigned) are also e-mailed. Each person can turn that off under **Profile**; the in-app notices stay. E-mail is plain text and is sent in the background, so a mail problem never slows down or breaks the change that caused it. There is no retry queue: a message that the mail server refuses is logged and dropped.
+
+</details>
+
+<details>
+<summary><b>Editing, withdrawing and taking cases</b></summary>
+
+<br>
+
+A citizen can edit a complaint (title, description, place, date, category, map pin) or withdraw it while its status is still **Filed**. Each edit keeps the earlier wording: it appears on the timeline once a case exists, and in the audit log. A withdrawn complaint is stored as rejected with the reason "Withdrawn by the citizen." and shown as **Withdrawn**.
+
+Only the assigned officer or an admin can change a case. An officer can open any case that has no officer and press **Take this case**; if two officers press it at once, one of them is told it was just taken. Moving a case from one officer to another is still an admin's job.
+
+**Saved views** keep a filter of the Cases or Complaints list under a name, per person (20 per list). They sit under the filter row.
 
 </details>
 
@@ -294,6 +330,7 @@ tests/           API tests; tests/e2e holds the browser tests
 
 - Sign-in is locked for 15 minutes after five wrong passwords for one email from one address. The count is kept in MongoDB, and the address is the one the server sees, so behind a proxy it needs the proxy's forwarded address configured.
 - The relational database and MongoDB are written separately, so a failure between the two writes can leave them out of step. There is no cross-database transaction.
+- Reset links and alerts need a mail server that you provide; with none, only the in-app notices work.
 - Uploads are stored in MongoDB and are limited to images, PDFs and text files of 5 MB or less, five per complaint.
 - Database connections are reused in a small pool per process; a very busy deployment would need a larger one.
 - This is a lab project and has not had a security audit. Do not use it for real police records as it stands.

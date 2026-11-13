@@ -164,6 +164,9 @@ def test_admin_makes_a_token_and_a_webhook(page):
     expect(page.locator(".voice-panel code")).to_be_visible()  # the signing secret, shown once
     page.click("text=I have saved it")
     expect(page.locator("table.data").nth(1)).to_contain_text("case.opened")
+    # remove it again, or every later test that opens a case would try to deliver to this address
+    for hook in page.request.get(page.base + "/api/webhooks").json()["items"]:
+        page.request.delete(page.base + f"/api/webhooks/{hook['webhook_id']}", headers={"X-Requested-With": "crms"})
 
 
 def test_similar_complaint_is_flagged_before_filing(page):
@@ -275,3 +278,69 @@ def test_accounts_table_sorts_when_a_heading_is_clicked(page):
     expect(page).to_have_url(re.compile(r"dir=desc"))
     first = page.locator("table.data").first.locator("tbody tr td:nth-child(2)").first
     expect(first).to_have_text(emails[-1])  # the table is reloaded with the last address on top
+
+
+HEADERS = {"X-Requested-With": "crms"}
+
+
+def file_via_api(page, title):
+    made = page.request.post(page.base + "/api/complaints", headers=HEADERS, data={
+        "title": title, "description": "Left at the bus stop.", "location": "Bus stand", "incident_date": "2026-11-02", "category": "Theft",
+    })
+    return made.json()["complaint_id"]
+
+
+def sign_out(page):
+    page.request.post(page.base + "/api/auth/logout", headers=HEADERS)
+
+
+def test_citizen_edits_then_withdraws_a_complaint(page):
+    sign_in(page, "asha@e2e.test")
+    number = file_via_api(page, "Bag lost")
+    page.goto(page.base + f"/complaints/{number}")
+    page.click("text=Edit complaint")
+    expect(page.locator("h1")).to_have_text("Edit your complaint")
+    page.fill("#title", "Backpack lost at the bus stand")
+    page.click("button:has-text('Save changes')")
+    expect(page.locator("h1")).to_have_text("Backpack lost at the bus stand")
+    page.click("summary:has-text('Withdraw this complaint')")
+    page.click("button:has-text('Yes, withdraw it')")
+    expect(page.locator(".badge", has_text="Withdrawn")).to_be_visible()
+    expect(page.locator("text=Edit complaint")).to_have_count(0)
+
+
+def test_officer_takes_an_unassigned_case(page):
+    sign_in(page, "asha@e2e.test")
+    number = file_via_api(page, "Phone snatched")
+    sign_out(page)
+    sign_in(page, "officer@e2e.test")
+    page.request.post(page.base + f"/api/complaints/{number}/verify", headers=HEADERS)
+    case = page.request.post(page.base + f"/api/complaints/{number}/register-case", headers=HEADERS, data={"station_id": 1}).json()["case_id"]
+    page.goto(page.base + f"/cases/{case}")
+    expect(page.locator("main")).to_contain_text("Only the assigned officer or an admin can change this case.")
+    page.click("button:has-text('Take this case')")
+    expect(page.locator(".panel--tile")).to_contain_text("Olga")
+    expect(page.locator("button:has-text('Take this case')")).to_have_count(0)
+
+
+def test_a_filter_can_be_saved_and_opened_again(page):
+    sign_in(page, "admin@e2e.test")
+    page.goto(page.base + "/cases?status=Under+Investigation")
+    page.fill("input[name=name]", "Open ones")
+    page.click("button:has-text('Save view')")
+    link = page.locator(".views-list a", has_text="Open ones")
+    expect(link).to_be_visible()
+    page.goto(page.base + "/cases")
+    page.click(".views-list a:has-text('Open ones')")
+    expect(page).to_have_url(re.compile(r"status=Under\+Investigation"))
+    page.click("button[aria-label='Delete the view Open ones']")
+    expect(page.locator(".views-list")).to_have_count(0)
+
+
+def test_forgotten_password_page_answers_the_same_for_any_address(page):
+    page.goto(page.base + "/login")
+    page.click("text=Forgot your password?")
+    expect(page.locator("h1")).to_have_text("Reset your password")  # the sign-in form has an #email too
+    page.fill("#email", "nobody@e2e.test")
+    page.click("button:has-text('Send the link')")
+    expect(page.locator("main")).to_contain_text("a link to choose a new password is on its way")

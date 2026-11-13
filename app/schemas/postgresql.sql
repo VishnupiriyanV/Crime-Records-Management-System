@@ -5,7 +5,8 @@ CREATE TABLE users (
     email    VARCHAR(200) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     role     VARCHAR(255) NOT NULL CHECK (role IN ('citizen', 'officer', 'admin')),
-    active   INT NOT NULL DEFAULT 1
+    active   INT NOT NULL DEFAULT 1,
+    email_alerts INT NOT NULL DEFAULT 1
 );
 
 CREATE TABLE police_station (

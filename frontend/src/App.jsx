@@ -2,7 +2,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Layout from './Layout.jsx';
 import { useSession } from './session.jsx';
 import { Loading } from './ui.jsx';
-import { Login, Register } from './pages/Auth.jsx';
+import { Forgot, Login, Register, Reset } from './pages/Auth.jsx';
 import { Notifications, Profile, Records } from './pages/Account.jsx';
 import { Complaint, Complaints, NewComplaint } from './pages/Complaints.jsx';
 import { Case, Cases, Dashboard } from './pages/Cases.jsx';
@@ -39,6 +39,8 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot" element={<Forgot />} />
+        <Route path="/reset" element={<Reset />} />
         <Route path="/search" element={<Guard><Search /></Guard>} />
         <Route path="/profile" element={<Guard><Profile /></Guard>} />
         <Route path="/notifications" element={<Guard><Notifications /></Guard>} />
@@ -46,6 +48,7 @@ export default function App() {
         <Route path="/complaints" element={<Guard><Complaints /></Guard>} />
         <Route path="/complaints/new" element={<Guard roles={['citizen']}><NewComplaint /></Guard>} />
         <Route path="/complaints/:id" element={<Guard><Complaint /></Guard>} />
+        <Route path="/complaints/:id/edit" element={<Guard roles={['citizen']}><NewComplaint /></Guard>} />
         <Route path="/dashboard" element={<Guard roles={staff}><Dashboard /></Guard>} />
         <Route path="/cases" element={<Guard roles={staff}><Cases /></Guard>} />
         <Route path="/cases/:id" element={<Guard roles={staff}><Case /></Guard>} />

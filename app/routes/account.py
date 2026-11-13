@@ -1,3 +1,7 @@
+import hashlib
+import secrets
+import time
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from starlette.requests import Request
@@ -6,7 +10,9 @@ from ..auth import current_user, hash_password, login_required, verify_password
 from ..db import get_db, many, one, run
 from ..forms import as_dict, as_dicts, need
 from .. import throttle
-from ..lifecycle import RuleError
+from ..lifecycle import RuleError, log_status
+from ..main_config import production
+from .. import mailer
 from ..mongo import clean, mdb
 
 router = APIRouter(prefix="/api")
@@ -27,6 +33,16 @@ class Profile(BaseModel):
     phone: str = ""
     password: str = ""
     current_password: str = ""
+    email_alerts: bool | None = None
+
+
+class Forgot(BaseModel):
+    email: str = ""
+
+
+class Reset(BaseModel):
+    token: str = ""
+    password: str = ""
 
 
 
@@ -82,6 +98,53 @@ def register(body: Register, request: Request):
     return session_payload(request.state.user)
 
 
+RESET_SECONDS = 3600
+
+
+def _fingerprint(token):
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+@router.post("/auth/forgot")
+def forgot(body: Forgot, request: Request):
+    """Mail a reset link. The answer is the same whether or not the address has an account."""
+    reply = {"ok": True}
+    user = one("SELECT user_id, name, email FROM users WHERE email = ? AND active = 1", body.email.strip().lower())
+    if user is None:
+        return reply
+    if mdb().password_resets.count_documents({"user_id": user["user_id"], "created": {"$gt": time.time() - RESET_SECONDS}}) >= 3:
+        return reply  # three a hour is plenty; more is someone else's mailbox being flooded
+    # the link must point at our own address, never at whatever Host header the request came with
+    base = mailer.base_url() or ("" if production() else str(request.base_url).rstrip("/"))
+    if not base:
+        return reply
+    token = secrets.token_urlsafe(32)
+    mdb().password_resets.insert_one({
+        "hash": _fingerprint(token), "user_id": user["user_id"], "created": time.time(), "expires": time.time() + RESET_SECONDS,
+    })
+    mailer.send(
+        user["email"], "CRMS: reset your password",
+        f"Hello {user['name']},\n\nSomeone asked to reset the password for your CRMS account. "
+        f"Open this link within an hour to choose a new one:\n\n{base}/reset?token={token}\n\n"
+        "If this was not you, ignore this e-mail; your password has not changed.",
+    )
+    return reply
+
+
+@router.post("/auth/reset")
+def reset(body: Reset):
+    if len(body.password) < 8:
+        raise RuleError("Use at least 8 characters for the password.")
+    row = mdb().password_resets.find_one({"hash": _fingerprint(body.token)}) if body.token else None
+    if row is None or row["expires"] < time.time():
+        raise RuleError("This reset link has expired or was already used. Ask for a new one.")
+    run("UPDATE users SET password = ? WHERE user_id = ?", hash_password(body.password), row["user_id"])
+    get_db().commit()
+    mdb().password_resets.delete_many({"user_id": row["user_id"]})
+    log_status("user", row["user_id"], None, "Password reset by e-mail link", row["user_id"])
+    return {"ok": True}
+
+
 @router.post("/auth/logout")
 def logout(request: Request):
     request.session.clear()
@@ -93,7 +156,7 @@ def get_profile(user=login_required()):
     extra = None
     if user["role"] == "citizen":
         extra = as_dict(one("SELECT address, phone FROM citizen WHERE user_id = ?", user["user_id"]))
-    return {"extra": extra}
+    return {"extra": extra, "email_alerts": bool(user["email_alerts"]), "email_possible": mailer.alerts_enabled()}
 
 
 @router.put("/profile")
@@ -116,6 +179,8 @@ def update_profile(body: Profile, request: Request, user=login_required()):
         )
     if body.password:
         run("UPDATE users SET password = ? WHERE user_id = ?", hash_password(body.password), uid)
+    if body.email_alerts is not None:
+        run("UPDATE users SET email_alerts = ? WHERE user_id = ?", 1 if body.email_alerts else 0, uid)
     get_db().commit()
     del request.state.user  # reload so the new name shows up
     return session_payload(current_user(request))

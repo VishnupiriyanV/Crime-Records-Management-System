@@ -1,3 +1,4 @@
+import hashlib
 import re
 import secrets
 from pathlib import Path
@@ -60,7 +61,7 @@ async def save_upload(file, owner):
     mdb().attachment_files.insert_one({"attachment_id": attachment_id, "data": Binary(data)})
     mdb().attachments.insert_one({
         "attachment_id": attachment_id, **owner, "filename": name,
-        "content_type": ALLOWED[ext], "size": len(data), "uploaded_at": now(),
+        "content_type": ALLOWED[ext], "size": len(data), "sha256": hashlib.sha256(data).hexdigest(), "uploaded_at": now(),
     })
     return attachment_id
 

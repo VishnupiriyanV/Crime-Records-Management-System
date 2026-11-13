@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api, upload, withQuery } from '../api.js';
 import { Bars, Line } from '../charts.jsx';
-import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, Flags, formData, Loading, PageHead, Pager, SortTh, Status, Tags, Timeline, useAct, useLoad } from '../ui.jsx';
+import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, Flags, formData, Loading, PageHead, Pager, SavedViews, SortTh, Status, Tags, Timeline, useAct, useLoad } from '../ui.jsx';
 import { useSession } from '../session.jsx';
 import { links } from '../nav.js';
 import { Dictate } from '../voice.jsx';
@@ -178,6 +178,7 @@ export function Cases() {
           </>
         )}
       </Filters>
+      <SavedViews page="cases" />
       {loading ? <Loading /> : error ? <Failed error={error} retry={reload} /> : (
         <div className="panel">
           {data.items.length === 0 ? (
@@ -456,6 +457,9 @@ export function Case() {
               <dt>{t('Current')}</dt><dd><Status value={c.status} /></dd>
               <dt>{t('Officer')}</dt><dd>{c.officer_name || t('Unassigned')}</dd>
             </dl>
+            {user.role === 'officer' && !c.officer_name && !c.status.startsWith('Closed') && (
+              <button type="button" className="btn btn--primary" style={{ marginTop: 'var(--space-md)' }} onClick={() => send('/take', {}, 'You now have this case.')}>{t('Take this case')}</button>
+            )}
             {editable && manualStates.length > 0 && (
               <form onSubmit={submit('/status', 'Case status updated.')} style={{ marginTop: 'var(--space-md)' }}>
                 <Field label="Move to" id="status"><select id="status" name="status" defaultValue="" required><option value="" disabled>{t('Choose a status')}</option>{manualStates.map((s) => <option key={s} value={s}>{t(s)}</option>)}</select></Field>

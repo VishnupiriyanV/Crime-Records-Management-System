@@ -58,8 +58,10 @@ export function Crumbs({ trail, here }) {
   );
 }
 
-export function Status({ value }) {
+export function Status({ value, reason }) {
   const t = useT();
+  // a complaint the citizen took back is stored as rejected with this reason, and shown as withdrawn
+  if (value === 'Rejected' && reason === 'Withdrawn by the citizen.') return <span className="badge">{t('Withdrawn')}</span>;
   const kind = value === 'Rejected' ? 'bad'
     : ['Closed (Resolved)', 'Verified'].includes(value) ? 'good'
     : ['Under Investigation', 'Chargesheet Filed', 'Filed'].includes(value) ? 'open' : '';
@@ -158,6 +160,7 @@ export function Attachments({ items }) {
             <span>
               {kindOf(a.content_type) ? <button className="link-btn" onClick={() => open(a)}>{a.filename}</button> : a.filename}
               {' '}<a className="muted" href={url(a)}>{t('Download')}</a>
+              {a.sha256 && <small className="fingerprint" title={a.sha256}>{t('SHA-256')} {a.sha256.slice(0, 16)}&hellip;</small>}
             </span>
             <span className="num muted">{sizeLabel(a.size)}</span>
           </li>
@@ -172,6 +175,54 @@ export function Attachments({ items }) {
         )}
       </dialog>
     </>
+  );
+}
+
+// names a way of filtering a list, so it can be opened again in one click; each person keeps their own
+export function SavedViews({ page }) {
+  const t = useT();
+  const [params] = useSearchParams();
+  const { notice } = useSession();
+  const { data, reload } = useLoad(`/views?page=${page}`);
+  const current = new URLSearchParams(params);
+  current.delete('page');
+  const query = current.toString();
+  const views = data?.items || [];
+
+  const save = async (event) => {
+    event.preventDefault();
+    const form = event.target;
+    try {
+      await api('/views', { method: 'POST', body: { page, name: new FormData(form).get('name'), query } });
+      form.reset();
+      notice('View saved.', 'ok');
+      reload();
+    } catch (err) { notice(err.message, 'error'); }
+  };
+  const remove = async (view) => {
+    try { await api(`/views/${view.view_id}`, { method: 'DELETE' }); reload(); } catch (err) { notice(err.message, 'error'); }
+  };
+
+  if (!views.length && !query) return null;
+  return (
+    <div className="views">
+      {views.length > 0 && (
+        <ul className="views-list" aria-label={t('Saved views')}>
+          {views.map((v) => (
+            <li key={v.view_id}>
+              <Link to={`/${page}${v.query ? `?${v.query}` : ''}`} aria-current={v.query === query ? 'true' : undefined}>{v.name}</Link>
+              <button type="button" className="link-btn muted" aria-label={t('Delete the view {name}', { name: v.name })} onClick={() => remove(v)}>&times;</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {query && (
+        <form className="views-save" onSubmit={save}>
+          <input name="name" maxLength={60} placeholder={t('Name this filter')} aria-label={t('Name this filter')} required />
+          <button className="btn btn--small" type="submit">{t('Save view')}</button>
+        </form>
+      )}
+    </div>
   );
 }
 

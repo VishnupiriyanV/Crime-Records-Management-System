@@ -21,6 +21,12 @@ def _status_text(entity, old, new):
     return f"Case moved to {new}"
 
 
+def _file_detail(upload):
+    text = f"{upload['content_type']}, {upload['size']} bytes"
+    # files from before fingerprints were kept have no hash, so their line stays as it was
+    return f"{text}, SHA-256 {upload['sha256'][:16]}" if upload.get("sha256") else text
+
+
 def _clip(text, size=200):
     text = " ".join(str(text or "").split())
     return text if len(text) <= size else text[: size - 1] + "\u2026"
@@ -40,6 +46,9 @@ def case_timeline(case, reports):
     for entry in clean(mdb().status_log.find({"entity": "complaint", "entity_id": complaint_id})):
         why = f"Reason: {_clip(filed['reject_reason'])}" if entry["new_status"] == "Rejected" and filed and filed["reject_reason"] else ""
         add(entry["changed_at"], "status", _status_text("complaint", entry["old_status"], entry["new_status"]), entry["who"], why, entry["new_status"])
+    for entry in clean(mdb().status_log.find({"entity": "complaint edit", "entity_id": complaint_id})):
+        was = "; ".join(f"{name} was \u201c{_clip(old, 60)}\u201d" for name, old in (entry.get("before") or {}).items())
+        add(entry["changed_at"], "note", "Citizen edited the complaint", entry["who"], was)
     for entry in clean(mdb().status_log.find({"entity": "case", "entity_id": case_id})):
         add(entry["changed_at"], "status", _status_text("case", entry["old_status"], entry["new_status"]), entry["who"], "", entry["new_status"])
     for entry in clean(mdb().status_log.find({"entity": "case assignment", "entity_id": case_id})):
@@ -56,7 +65,7 @@ def case_timeline(case, reports):
         for step in (item.get("custody") or [])[1:]:
             add(step["at"], "evidence", f"Evidence {item['evidence_no']} {step['action']}: {step['where']}", step["by"], _clip(step.get("note")))
     for upload in clean(mdb().attachments.find({"case_id": case_id})):
-        add(upload["uploaded_at"], "file", f"File attached to evidence {upload['evidence_no']}: {upload['filename']}", None, f"{upload['content_type']}, {upload['size']} bytes")
+        add(upload["uploaded_at"], "file", f"File attached to evidence {upload['evidence_no']}: {upload['filename']}", None, _file_detail(upload))
     for item in clean(mdb().statements.find({"case_id": case_id})):
         add(item["recorded_at"], "statement", f"Statement from {item['kind']} {item['person']}", item["recorded_by"], _clip(item["body"]))
     for item in clean(mdb().arrests.find({"case_id": case_id})):
@@ -72,7 +81,7 @@ def case_timeline(case, reports):
     for note in clean(mdb().notes.find({"complaint_id": complaint_id})):
         add(note["created_at"], "note", f"Citizen added a {note['kind']}", None, _clip(note["body"]))
     for upload in clean(mdb().attachments.find({"complaint_id": complaint_id})):
-        add(upload["uploaded_at"], "file", f"File attached: {upload['filename']}", None, f"{upload['content_type']}, {upload['size']} bytes")
+        add(upload["uploaded_at"], "file", f"File attached: {upload['filename']}", None, _file_detail(upload))
 
     events.sort(key=lambda e: e["at"])
     return events

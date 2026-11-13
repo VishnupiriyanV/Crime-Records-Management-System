@@ -33,7 +33,7 @@ def token_user(request):
         raise HTTPException(403, "An API token cannot do that.")
     if token["scope"] == "read" and request.method not in ("GET", "HEAD"):
         raise HTTPException(403, "This API token is read-only.")
-    owner = one("SELECT user_id, name, email, role, active FROM users WHERE user_id = ?", token["user_id"])
+    owner = one("SELECT user_id, name, email, role, active, email_alerts FROM users WHERE user_id = ?", token["user_id"])
     if not owner or not owner["active"]:
         raise HTTPException(401, "That API token is not valid.")
     return owner
@@ -52,7 +52,7 @@ def current_user(request: Request):
     else:
         user_id = request.session.get("user_id")
         if user_id:
-            row = one("SELECT user_id, name, email, role, active FROM users WHERE user_id = ?", user_id)
+            row = one("SELECT user_id, name, email, role, active, email_alerts FROM users WHERE user_id = ?", user_id)
             if row and row["active"]:
                 user = row
             else:

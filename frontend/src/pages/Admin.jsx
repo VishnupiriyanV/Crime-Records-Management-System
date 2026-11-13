@@ -112,6 +112,7 @@ export function Users() {
   const { data, error, loading, reload } = useLoad(withQuery('/users', { sort: params.get('sort') || '', dir: params.get('dir') || '' }));
   const act = useAct(reload);
   const [role, setRole] = useState('citizen');
+  const [issued, setIssued] = useState(null);
   if (loading) return <Loading />;
   if (error) return <Failed error={error} retry={reload} />;
 
@@ -155,13 +156,25 @@ export function Users() {
               <td>{u.station}</td>
               <td>{u.active ? <span className="badge badge--good">{t('Active')}</span> : <span className="badge badge--bad">{t('Inactive')}</span>}</td>
               <td>{u.user_id !== user.user_id && (
-                <button className="link-btn" onClick={() => act(() => api(`/users/${u.user_id}/active`, { method: 'POST' }), 'Account updated.')}>
-                  {t(u.active ? 'Deactivate' : 'Activate')}
-                </button>
+                <>
+                  <button className="link-btn" onClick={() => act(() => api(`/users/${u.user_id}/active`, { method: 'POST' }), 'Account updated.')}>
+                    {t(u.active ? 'Deactivate' : 'Activate')}
+                  </button>{' '}
+                  <button className="link-btn" onClick={async () => { const done = await act(() => api(`/users/${u.user_id}/reset-password`, { method: 'POST' })); if (done) setIssued({ name: u.name, password: done.password }); }}>
+                    {t('Reset password')}
+                  </button>
+                </>
               )}</td>
             </tr>
           ))}</tbody>
         </table></div>
+        {issued && (
+          <div className="flash" role="status">
+            {t('Temporary password for {name}:', { name: issued.name })} <code className="num">{issued.password}</code>{' '}
+            <span className="muted">{t('It is shown once. Ask them to change it on their profile page.')}</span>{' '}
+            <button type="button" className="link-btn" onClick={() => setIssued(null)}>{t('Hide')}</button>
+          </div>
+        )}
         <p className="muted" style={{ marginTop: 'var(--space-sm)' }}>{t('Officers need a badge, rank and station, so create them with the form below rather than by changing a role.')}</p>
       </section>
 

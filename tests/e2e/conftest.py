@@ -31,12 +31,15 @@ def site(tmp_path_factory):
     token = db.use(db.connect(path))
     conn = db.get_db()
     conn.execute("INSERT INTO police_station (name, jurisdiction) VALUES ('Central', 'Centre')")
-    for name, email, role in (("Admin", "admin@e2e.test", "admin"), ("Asha", "asha@e2e.test", "citizen")):
+    for name, email, role in (("Admin", "admin@e2e.test", "admin"), ("Asha", "asha@e2e.test", "citizen"), ("Olga", "officer@e2e.test", "officer")):
         uid = conn.execute(
             "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
             (name, email, hash_password("password123"), role),
         ).lastrowid
-        conn.execute(f"INSERT INTO {role} (user_id) VALUES (?)", (uid,))
+        if role == "officer":
+            conn.execute("INSERT INTO officer (user_id, badge_no, officer_rank, station_id) VALUES (?, 'B-7', 'Inspector', 1)", (uid,))
+        else:
+            conn.execute(f"INSERT INTO {role} (user_id) VALUES (?)", (uid,))
     conn.commit()
     db.release(token)
 

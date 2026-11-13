@@ -196,8 +196,8 @@ def _coordinate(value, low, high, label):
     return round(value, 6)
 
 
-@router.post("/complaints")
-def create(body: NewComplaint, user=login_required("citizen")):
+def _checked(body):
+    """The fields of a complaint form once they pass the rules; shared by filing and editing."""
     values = (
         need(body.title, "Title", 120),
         need(body.description, "Description", 4000),
@@ -210,6 +210,12 @@ def create(body: NewComplaint, user=login_required("citizen")):
         raise RuleError("Give both a latitude and a longitude, or neither.")
     lat = _coordinate(body.latitude, -90, 90, "Latitude")
     lng = _coordinate(body.longitude, -180, 180, "Longitude")
+    return values, body.category, lat, lng
+
+
+@router.post("/complaints")
+def create(body: NewComplaint, user=login_required("citizen")):
+    values, category, lat, lng = _checked(body)
     citizen_id = _citizen_id(user)
     # a double click sends the same form twice; answer with the complaint that is already there
     last = one(
@@ -223,11 +229,54 @@ def create(body: NewComplaint, user=login_required("citizen")):
     complaint_id = run(
         "INSERT INTO complaint (citizen_id, title, description, location, incident_date, category, latitude, longitude)"
         " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        citizen_id, *values, body.category, lat, lng,
+        citizen_id, *values, category, lat, lng,
     )
     get_db().commit()
     log_status("complaint", complaint_id, None, "Filed", user["user_id"])
     return {"complaint_id": complaint_id}
+
+
+WITHDRAWN = "Withdrawn by the citizen."
+
+
+@router.put("/complaints/{complaint_id}")
+def edit(complaint_id: int, body: NewComplaint, user=login_required("citizen")):
+    """A citizen can correct a complaint until the station has looked at it; what it said before is kept."""
+    c = _load(complaint_id, user)
+    if c["status"] != "Filed":
+        raise RuleError("A complaint can only be changed before the station has reviewed it.")
+    values, category, lat, lng = _checked(body)
+    before = {}
+    for name, new in zip(("title", "description", "location", "incident_date"), values):
+        if str(c[name]) != new:
+            before[name] = str(c[name])
+    if category != c["category"]:
+        before["category"] = c["category"]
+    if (lat, lng) != (c["latitude"], c["longitude"]):
+        before["map pin"] = "none" if c["latitude"] is None else f"{c['latitude']}, {c['longitude']}"
+    if before:
+        run(
+            "UPDATE complaint SET title = ?, description = ?, location = ?, incident_date = ?, category = ?,"
+            " latitude = ?, longitude = ? WHERE complaint_id = ?",
+            *values, category, lat, lng, complaint_id,
+        )
+        mdb().status_log.insert_one({
+            "entity": "complaint edit", "entity_id": complaint_id, "old_status": ", ".join(before), "new_status": "Filed",
+            "before": before, "user_id": user["user_id"], "who": user["name"], "changed_at": now(),
+        })
+        get_db().commit()
+    return {"complaint_id": complaint_id, "changed": list(before)}
+
+
+@router.post("/complaints/{complaint_id}/withdraw")
+def withdraw(complaint_id: int, user=login_required("citizen")):
+    c = _load(complaint_id, user)
+    if c["status"] != "Filed":
+        raise RuleError("Only a complaint the station has not reviewed yet can be withdrawn.")
+    run("UPDATE complaint SET status = 'Rejected', reject_reason = ? WHERE complaint_id = ?", WITHDRAWN, complaint_id)
+    log_status("complaint", complaint_id, "Filed", "Rejected", user["user_id"])
+    get_db().commit()
+    return {"ok": True}
 
 
 @router.get("/complaints/{complaint_id}")
@@ -252,6 +301,7 @@ def detail(complaint_id: int, user=login_required()):
         "complaint": with_fir(c), "case": as_dict(case), "notes": notes,
         "history": history, "attachments": list_for(complaint_id), "stations": as_dicts(stations), "can_add_note": can_add_note,
         "categories": CATEGORIES, "severities": SEVERITIES,
+        "can_edit": user["user_id"] == c["owner_id"] and c["status"] == "Filed",
         "flags": complaint_flags([c]).get(complaint_id, []) if is_staff(user) else [],
     }
 

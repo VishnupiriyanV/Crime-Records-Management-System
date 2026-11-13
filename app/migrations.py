@@ -6,6 +6,7 @@ COLUMNS = [
     ("complaint", "severity", "VARCHAR(20) NOT NULL DEFAULT 'Medium'"),
     ("complaint", "latitude", "DOUBLE PRECISION"),
     ("complaint", "longitude", "DOUBLE PRECISION"),
+    ("users", "email_alerts", "INTEGER NOT NULL DEFAULT 1"),
     ("police_station", "phone", "VARCHAR(40)"),
     ("police_station", "latitude", "DOUBLE PRECISION"),
     ("police_station", "longitude", "DOUBLE PRECISION"),

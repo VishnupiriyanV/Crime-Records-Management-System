@@ -14,7 +14,9 @@ export function Profile() {
   if (error) return <Failed error={error} retry={reload} />;
 
   const save = (event) => {
+    const form = event.target;
     const body = formData(event);
+    if (form.elements.email_alerts) body.email_alerts = form.elements.email_alerts.checked;
     return act(async () => setSession(await api('/profile', { method: 'PUT', body })), 'Profile saved.');
   };
   return (
@@ -34,6 +36,11 @@ export function Profile() {
         <Field label="Current password" id="current_password" hint="Only needed when you set a new password.">
           <input id="current_password" name="current_password" type="password" autoComplete="current-password" />
         </Field>
+        {data.email_possible && (
+          <div className="field">
+            <label><input type="checkbox" name="email_alerts" defaultChecked={data.email_alerts} />{t('E-mail me when something changes on my complaints and cases')}</label>
+          </div>
+        )}
         <button className="btn btn--primary" type="submit">{t('Save changes')}</button>
       </form>
     </>

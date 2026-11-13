@@ -2,7 +2,7 @@
 from .constants import CHARGEABLE
 from .db import get_db, many, one, run
 from .mongo import mdb, now
-from . import webhooks
+from . import mailer, webhooks
 
 # the only moves a case may make
 CASE_TRANSITIONS = {
@@ -35,6 +35,11 @@ def notify(user_id, message, link=None):
     mdb().notifications.insert_one(
         {"user_id": user_id, "message": message, "link": link, "seen": False, "created_at": now()}
     )
+    if mailer.alerts_enabled():
+        who = one("SELECT email, email_alerts FROM users WHERE user_id = ? AND active = 1", user_id)
+        if who and who["email_alerts"]:
+            where = f"\n\nOpen it: {mailer.base_url()}{link}" if link and mailer.base_url() else ""
+            mailer.send(who["email"], "CRMS: " + message[:80], message + where + "\n\nYou can turn these e-mails off on your profile page.")
 
 
 def _complaint(complaint_id):
@@ -122,6 +127,29 @@ def assign_officer(case_id, officer_id, user_id):
     _tell_officers(case, officer_id)
     get_db().commit()
     return officer["name"]
+
+
+def take_case(case_id, user_id):
+    """An officer picks up a case nobody has yet."""
+    me = one("SELECT officer_id FROM officer WHERE user_id = ?", user_id)
+    if me is None:
+        raise RuleError("Only an officer can take a case.")
+    case = one("SELECT * FROM crime_case WHERE case_id = ?", case_id)
+    if case is None:
+        raise RuleError("Case not found.")
+    if is_closed(case["status"]):
+        raise RuleError("A closed case cannot be taken.")
+    if case["officer_id"] == me["officer_id"]:
+        raise RuleError("This case is already yours.")
+    if case["officer_id"] is not None:
+        raise RuleError("Another officer already has this case. Ask an admin to reassign it.")
+    run("UPDATE crime_case SET officer_id = ? WHERE case_id = ? AND officer_id IS NULL", me["officer_id"], case_id)
+    now_owner = one("SELECT officer_id FROM crime_case WHERE case_id = ?", case_id)["officer_id"]
+    if now_owner != me["officer_id"]:
+        get_db().rollback()
+        raise RuleError("Another officer just took this case.")
+    log_status("case assignment", case_id, None, me["officer_id"], user_id)
+    get_db().commit()
 
 
 def _tell_officers(case, new_officer_id):

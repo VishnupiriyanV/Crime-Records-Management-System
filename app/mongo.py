@@ -36,6 +36,8 @@ def configure(url=None, name="crms", client=None):
     _db.ledger.create_index([("complaint_id", ASCENDING), ("seq", ASCENDING)], unique=True)
     _db.ledger_heads.create_index("complaint_id", unique=True)
     _db.webhooks.create_index("webhook_id", unique=True)
+    _db.password_resets.create_index("hash", unique=True)
+    _db.saved_views.create_index([("user_id", ASCENDING), ("page", ASCENDING)])
     _db.notifications.create_index([("user_id", ASCENDING), ("seen", ASCENDING)])
     _db.status_log.create_index([("entity", ASCENDING), ("entity_id", ASCENDING)])
     return _db

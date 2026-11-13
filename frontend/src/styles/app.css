@@ -258,6 +258,18 @@ html[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) grayscale(1) sepi
 .inline-form { display: flex; gap: var(--space-xs); margin-top: var(--space-xs); }
 .inline-form input { flex: 1; }
 
+/* saved filters */
+.views { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm) var(--space-md); margin: calc(-1 * var(--space-sm)) 0 var(--space-lg); }
+.views-list { display: flex; flex-wrap: wrap; gap: var(--space-xs); list-style: none; margin: 0; padding: 0; }
+.views-list li { display: inline-flex; align-items: center; border: 1px solid var(--color-rule-2); border-radius: var(--radius-card); background: var(--color-sheet); }
+.views-list a { padding: 3px var(--space-sm); color: var(--color-ink); text-decoration: none; }
+.views-list a[aria-current="true"] { font-weight: 600; color: var(--color-accent); }
+.views-list .link-btn { padding: 3px var(--space-xs); text-decoration: none; }
+.views-save { display: flex; gap: var(--space-xs); }
+.views-save input { height: 32px; width: 11rem; }
+.fingerprint { display: block; margin-top: var(--space-3xs); font-family: var(--font-outlier); color: var(--color-muted); }
+.panel--compact > .btn, .panel--compact > details { margin: 0; }
+
 /* loading placeholders, shaped like the rows that will replace them */
 .skeleton { height: 14px; margin: var(--space-md) 0; background: var(--color-paper-3); }
 .skeleton.short { width: 40%; }

@@ -6,7 +6,7 @@ from ..constants import CATEGORIES, CHARGEABLE, CUSTODY_ACTIONS, PERSON_ROLES, S
 from ..db import get_db, many, one, run
 from ..forms import as_dict, as_dicts, need, need_date, order_by, page_number
 from ..lifecycle import (
-    CASE_STATUSES, CASE_TRANSITIONS, RuleError, assign_officer, change_case_status, file_chargesheet, is_closed, notify,
+    CASE_STATUSES, CASE_TRANSITIONS, RuleError, assign_officer, change_case_status, file_chargesheet, is_closed, notify, take_case,
 )
 from ..mongo import clean, mdb, now
 from ..overdue import case_flags
@@ -292,6 +292,13 @@ def assign(case_id: int, body: Assign, user=login_required("admin")):
     officer = assign_officer(case_id, body.officer_id, user["user_id"])
     ledger.seal_case(case_id, user["name"])
     return {"officer": officer}
+
+
+@router.post("/cases/{case_id}/take")
+def take(case_id: int, user=login_required("officer")):
+    take_case(case_id, user["user_id"])
+    ledger.seal_case(case_id, user["name"])
+    return {"ok": True}
 
 
 @router.post("/cases/{case_id}/evidence")

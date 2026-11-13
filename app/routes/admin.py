@@ -1,3 +1,5 @@
+import secrets
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -169,6 +171,19 @@ def toggle_active(user_id: int, user=login_required("admin")):
     if now_active:
         log_status("user", user_id, None, "Activated" if now_active["active"] else "Deactivated", user["user_id"])
     return {"ok": True}
+
+
+@router.post("/users/{user_id}/reset-password")
+def reset_password(user_id: int, user=login_required("admin")):
+    """For someone who cannot use the e-mail link: a temporary password, shown to the admin once."""
+    target = one("SELECT user_id FROM users WHERE user_id = ?", user_id)
+    if target is None:
+        raise RuleError("That account does not exist.")
+    temporary = secrets.token_urlsafe(9)
+    run("UPDATE users SET password = ? WHERE user_id = ?", hash_password(temporary), user_id)
+    get_db().commit()
+    log_status("user", user_id, None, "Password reset by an admin", user["user_id"])
+    return {"password": temporary}
 
 
 @router.post("/stations")

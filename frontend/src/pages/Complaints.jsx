@@ -1,9 +1,9 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, upload, withQuery } from '../api.js';
 import { MiniMap, PinPicker } from '../MapView.jsx';
 import { useSession } from '../session.jsx';
-import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Flags, Progress, SortTh, Status, Tags, useAct, useLoad } from '../ui.jsx';
+import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Flags, Progress, SavedViews, SortTh, Status, Tags, useAct, useLoad } from '../ui.jsx';
 import { Dictate, SpeakComplaint } from '../voice.jsx';
 import { useT } from '../i18n.jsx';
 
@@ -59,6 +59,7 @@ export function Complaints() {
           </>
         )}
       </Filters>
+      <SavedViews page="complaints" />
 
       {loading ? <Loading /> : error ? <Failed error={error} retry={reload} /> : (
         <div className="panel">
@@ -84,7 +85,7 @@ export function Complaints() {
                       {!citizen && <td>{c.citizen_name}</td>}
                       <td>{c.location}</td>
                       <td className="num">{c.date_filed}</td>
-                      <td><Status value={c.status} /></td>
+                      <td><Status value={c.status} reason={c.reject_reason} /></td>
                       <td>{c.case_id ? <Status value={c.case_status} /> : <span className="muted">{t('None')}</span>}</td>
                     </tr>
                   ))}
@@ -101,11 +102,16 @@ export function Complaints() {
 
 export function NewComplaint() {
   const t = useT();
+  const { id } = useParams();
+  const editing = Boolean(id);
   const navigate = useNavigate();
   const act = useAct();
   const { notice } = useSession();
   const { data } = useLoad('/meta');
+  const existing = useLoad(editing ? `/complaints/${id}` : '/meta');
+  const c = editing ? existing.data?.complaint : null;
   const [pin, setPin] = useState(null);
+  useEffect(() => { if (c && c.latitude != null) setPin({ lat: c.latitude, lng: c.longitude }); }, [c?.complaint_id]);
   const pick = useCallback((at) => setPin(at), []);
   const [sending, setSending] = useState(false);
   const [similar, setSimilar] = useState([]);
@@ -125,6 +131,13 @@ export function NewComplaint() {
     if (pin) { body.latitude = pin.lat; body.longitude = pin.lng; }
     if (sending) return;
     setSending(true);
+    if (editing) {
+      return act(async () => {
+        try { await api(`/complaints/${id}`, { method: 'PUT', body }); } catch (err) { setSending(false); throw err; }
+        notice('Complaint updated.', 'ok', true);
+        navigate(`/complaints/${id}`);
+      });
+    }
     return act(async () => {
       if (!skipCheck.current) {
         // warn about a complaint of the person's own that looks the same; if the check fails, filing goes ahead
@@ -151,23 +164,29 @@ export function NewComplaint() {
     });
   };
 
+  if (editing && existing.loading) return <Loading />;
+  if (editing && existing.error) return <Failed error={existing.error} retry={existing.error.status === 404 ? undefined : existing.reload} />;
+  if (editing && !existing.data.can_edit) {
+    return <Empty action={<Link className="btn" to={`/complaints/${id}`}>{t('Back to the complaint')}</Link>}>{t('This complaint can no longer be changed.')}</Empty>;
+  }
+
   return (
     <>
-      <PageHead title={t('File a complaint')} text="The station reviews every complaint before a case is opened." />
+      <PageHead title={t(editing ? 'Edit your complaint' : 'File a complaint')} text={editing ? 'Your earlier wording is kept in the record.' : 'The station reviews every complaint before a case is opened.'} />
       <form className="panel form-narrow" onSubmit={submit} ref={formRef}>
-        <SpeakComplaint />
-        <Field label="Short title" id="title"><input id="title" name="title" maxLength={120} required /></Field>
+        {!editing && <SpeakComplaint />}
+        <Field label="Short title" id="title"><input id="title" name="title" maxLength={120} defaultValue={c?.title} required /></Field>
         <Field label="What happened" id="description">
-          <textarea id="description" name="description" required />
+          <textarea id="description" name="description" defaultValue={c?.description} required />
           <Dictate target="description" />
         </Field>
         <div className="row">
           <Field label="Category" id="category">
-            <select id="category" name="category" defaultValue="Other">{(data?.categories || ['Other']).map((c) => <option key={c} value={c}>{t(c)}</option>)}</select>
+            <select id="category" name="category" defaultValue={c?.category || 'Other'}>{(data?.categories || ['Other']).map((k) => <option key={k} value={k}>{t(k)}</option>)}</select>
           </Field>
-          <Field label="Date of incident" id="incident_date"><input id="incident_date" name="incident_date" type="date" required /></Field>
+          <Field label="Date of incident" id="incident_date"><input id="incident_date" name="incident_date" type="date" defaultValue={c ? String(c.incident_date).slice(0, 10) : undefined} required /></Field>
         </div>
-        <Field label="Where" id="location"><input id="location" name="location" maxLength={200} required /></Field>
+        <Field label="Where" id="location"><input id="location" name="location" maxLength={200} defaultValue={c?.location} required /></Field>
         <div className="field">
           <label>{t('Pin it on the map')} <span className="muted">{t('(optional)')}</span></label>
           <PinPicker value={pin} onChange={pick} />
@@ -176,9 +195,11 @@ export function NewComplaint() {
             {pin && <button type="button" className="btn btn--small" onClick={() => setPin(null)}>{t('Remove pin')}</button>}
           </div>
         </div>
-        <Field label="Attach a file" id="file" hint="Optional. An image, PDF or text file, up to 5 MB.">
-          <input id="file" name="file" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt" />
-        </Field>
+        {!editing && (
+          <Field label="Attach a file" id="file" hint="Optional. An image, PDF or text file, up to 5 MB.">
+            <input id="file" name="file" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt" />
+          </Field>
+        )}
         {similar.length > 0 && (
           <div className="voice-panel" role="alert">
             <b>{t('You may have filed this already')}</b>
@@ -197,8 +218,8 @@ export function NewComplaint() {
           </div>
         )}
         <div className="row" style={{ marginTop: 'var(--space-md)' }}>
-          <button className="btn btn--primary" type="submit" disabled={sending}>{t(sending ? 'Submitting...' : 'Submit complaint')}</button>
-          <Link className="btn" to="/complaints">{t('Cancel')}</Link>
+          <button className="btn btn--primary" type="submit" disabled={sending}>{t(sending ? 'Submitting...' : editing ? 'Save changes' : 'Submit complaint')}</button>
+          <Link className="btn" to={editing ? `/complaints/${id}` : '/complaints'}>{t('Cancel')}</Link>
         </div>
       </form>
     </>
@@ -245,7 +266,7 @@ export function Complaint() {
   return (
     <>
       <Crumbs trail={[['Complaints', '/complaints']]} here={t('No. {id}', { id: c.complaint_id })} />
-      <PageHead data title={c.title} text={t('{fir}, filed by {name} on {date}', { fir: c.fir_no, name: c.citizen_name, date: c.date_filed })}><div className="head-actions"><Tags category={c.category} severity={c.severity} /><Status value={c.status} /></div></PageHead>
+      <PageHead data title={c.title} text={t('{fir}, filed by {name} on {date}', { fir: c.fir_no, name: c.citizen_name, date: c.date_filed })}><div className="head-actions"><Tags category={c.category} severity={c.severity} /><Status value={c.status} reason={c.reject_reason} /></div></PageHead>
       {flags && flags.length > 0 && <div className="flash flash--error">{t('Needs attention:')}{' '}<Flags items={flags} /></div>}
       <Progress complaint={c} kase={kase} />
 
@@ -261,6 +282,19 @@ export function Complaint() {
             </dl>
             {c.latitude != null && <div style={{ marginTop: 'var(--space-md)' }}><MiniMap lat={c.latitude} lng={c.longitude} /></div>}
           </section>
+
+          {data.can_edit && (
+            <section className="panel panel--compact">
+              <h2>{t('Change your mind?')}</h2>
+              <p className="muted">{t('Until the station reviews it, you can correct this complaint or withdraw it.')}</p>
+              <Link className="btn btn--small" to={`/complaints/${id}/edit`}>{t('Edit complaint')}</Link>
+              <details>
+                <summary>{t('Withdraw this complaint')}</summary>
+                <p>{t('The station will not look at it, and it cannot be filed again from here.')}</p>
+                <button type="button" className="btn btn--small btn--danger" onClick={() => post('/withdraw', {}, 'Complaint withdrawn.')}>{t('Yes, withdraw it')}</button>
+              </details>
+            </section>
+          )}
 
           <section className="panel">
             <h2>{t('Files')}</h2>
