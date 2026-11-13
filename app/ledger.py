@@ -112,9 +112,9 @@ def _file_problems(complaint_id):
     for doc in mdb().attachments.find({"$or": owners}):
         if not doc.get("sha256"):
             continue
-        stored = mdb().attachment_files.find_one({"attachment_id": doc["attachment_id"]})
+        stored = mdb().attachment_files.find_one({"attachment_id": doc.get("attachment_id")})
         if stored is None or hashlib.sha256(bytes(stored["data"])).hexdigest() != doc["sha256"]:
-            problems.append(f"The file {doc['filename']} no longer matches the fingerprint taken when it was uploaded.")
+            problems.append(f"The file {doc.get('filename', 'an upload')} no longer matches the fingerprint taken when it was uploaded.")
     return problems
 
 
@@ -142,7 +142,10 @@ def verify(complaint_id, events):
     unsealed = [e for e in events if key_of(e) not in sealed_keys]
     if unsealed:
         problems.append(f"{len(unsealed)} recorded event{'s are' if len(unsealed) != 1 else ' is'} not covered by the seal.")
-    problems.extend(_file_problems(complaint_id))
+    try:
+        problems.extend(_file_problems(complaint_id))
+    except Exception:  # one odd file record must not stop the rest of the check from answering
+        problems.append("The uploaded files could not be checked.")
     late = [
         row["seq"] for row in rows
         if not row["imported"] and _seconds_between(row["event"]["at"], row["sealed_at"]) > LATE_SECONDS

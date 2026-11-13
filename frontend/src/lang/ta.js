@@ -551,4 +551,7 @@ export default {
   'Change password': 'கடவுச்சொல்லை மாற்று',
   'Ask for a new link': 'புதிய இணைப்பைக் கேளுங்கள்',
   'Password changed. Sign in with the new one.': 'கடவுச்சொல் மாற்றப்பட்டது. புதியதைக் கொண்டு உள்நுழையுங்கள்.',
+  'Could not check the integrity': 'ஒருமைப்பாட்டைச் சரிபார்க்க முடியவில்லை',
+  'Checking...': 'சரிபார்க்கிறது...',
+  'The uploaded files could not be checked.': 'பதிவேற்றிய கோப்புகளைச் சரிபார்க்க முடியவில்லை.',
 };

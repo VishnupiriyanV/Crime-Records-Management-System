@@ -551,4 +551,7 @@ export default {
   'Change password': 'पासवर्ड बदलें',
   'Ask for a new link': 'नया लिंक माँगें',
   'Password changed. Sign in with the new one.': 'पासवर्ड बदल गया। नए पासवर्ड से साइन इन करें।',
+  'Could not check the integrity': 'अखंडता की जाँच नहीं हो सकी',
+  'Checking...': 'जाँच हो रही है...',
+  'The uploaded files could not be checked.': 'अपलोड की गई फ़ाइलों की जाँच नहीं हो सकी।',
 };

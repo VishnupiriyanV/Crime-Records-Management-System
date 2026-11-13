@@ -213,17 +213,29 @@ function Integrity({ start, id }) {
   const t = useT();
   const [result, setResult] = useState(start);
   const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState('');
   useEffect(() => setResult(start), [start]);
   const check = async () => {
     setBusy(true);
-    try { setResult(await api(`/cases/${id}/integrity`)); } finally { setBusy(false); }
+    setFailure('');
+    try { setResult(await api(`/cases/${id}/integrity`)); } catch (err) { setFailure(err.message || 'The check did not finish.'); } finally { setBusy(false); }
   };
+  // a check that could not run must never leave the old green result on screen, as if it had passed
+  if (failure) {
+    return (
+      <div className="integrity integrity--bad" role="alert">
+        <b>{t('Could not check the integrity')}</b>
+        <span className="integrity-problem">{t(failure)}</span>
+        <button type="button" className="btn btn--small" onClick={check} disabled={busy}>{t('Try again')}</button>
+      </div>
+    );
+  }
   return (
-    <div className={`integrity${result.ok ? '' : ' integrity--bad'}`} role="status">
+    <div className={`integrity${result.ok ? '' : ' integrity--bad'}`} role="status" aria-busy={busy}>
       <b>{t(result.ok ? 'Sealed and verified' : 'Integrity problem')}</b>
       <span className="muted">{t('{n} entries, chain head {head}', { n: result.entries, head: result.head.slice(0, 12) || '-' })}</span>
       {result.problems.map((p) => <span key={p} className="integrity-problem">{t(p)}</span>)}
-      <button type="button" className="btn btn--small" onClick={check} disabled={busy}>{t('Verify integrity')}</button>
+      <button type="button" className="btn btn--small" onClick={check} disabled={busy}>{t(busy ? 'Checking...' : 'Verify integrity')}</button>
     </div>
   );
 }
