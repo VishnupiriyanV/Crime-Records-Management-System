@@ -177,25 +177,6 @@ export default {
   'Resolved': 'सुलझा',
   'Closed, unresolved': 'बंद, अनसुलझा',
 
-  // voice input
-  'Speak your complaint': 'बोलकर शिकायत लिखवाएँ',
-  'Stop and fill the form': 'रोकें और फ़ॉर्म भरें',
-  "Say what happened, where and when. Your browser's speech service turns it into text, and it may send the audio to its maker.": 'बताइए कि क्या हुआ, कहाँ और कब। आपके ब्राउज़र की स्पीच सेवा इसे टेक्स्ट में बदलती है और ऑडियो ब्राउज़र बनाने वाली कंपनी को भेज सकती है।',
-  'In Tamil and Hindi only the category and date are filled in; the place stays empty.': 'तमिल और हिंदी में केवल श्रेणी और तिथि भरी जाती है; स्थान खाली रहता है।',
-  'Filled from your voice: {fields}. Check every field before you submit.': 'आपकी आवाज़ से भरा गया: {fields}। जमा करने से पहले हर खाना जाँच लें।',
-  'Nothing was filled because those boxes already have text.': 'कुछ नहीं भरा गया क्योंकि उन खानों में पहले से टेक्स्ट है।',
-  'Could not read that: {error}': 'इसे पढ़ा नहीं जा सका: {error}',
-  'The microphone is blocked. Allow it in the address bar and try again.': 'माइक्रोफ़ोन बंद है। एड्रेस बार में अनुमति दें और फिर कोशिश करें।',
-  'Voice input stopped ({error}).': 'आवाज़ इनपुट रुक गया ({error})।',
-  'Dictate': 'बोलकर लिखें',
-  'Stop': 'रोकें',
-  "Uses your browser's speech service.": 'आपके ब्राउज़र की स्पीच सेवा का उपयोग करता है।',
-  'Speaking a complaint needs Chrome, Edge or Safari.': 'बोलकर शिकायत दर्ज करने के लिए Chrome, Edge या Safari चाहिए।',
-  'Spoken language': 'बोलने की भाषा',
-  'what happened': 'क्या हुआ',
-  'title': 'शीर्षक',
-  'place': 'स्थान',
-  'date': 'तिथि',
   'category': 'श्रेणी',
 
   // pages

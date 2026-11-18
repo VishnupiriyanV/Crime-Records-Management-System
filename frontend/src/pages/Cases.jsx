@@ -5,7 +5,6 @@ import { Bars, Line } from '../charts.jsx';
 import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, Flags, formData, Loading, PageHead, Pager, SavedViews, SortTh, Status, Tags, Timeline, useAct, useLoad } from '../ui.jsx';
 import { useSession } from '../session.jsx';
 import { links } from '../nav.js';
-import { Dictate } from '../voice.jsx';
 import { useT } from '../i18n.jsx';
 
 const WAITING = {
@@ -356,7 +355,7 @@ export function Case() {
                 <summary>{t('Record evidence')}</summary>
                 <form onSubmit={recordEvidence}>
                   <Field label="Type" id="type"><input id="type" name="type" placeholder={t('Photograph, CCTV, weapon')} required /></Field>
-                  <Field label="Description" id="ev-desc"><textarea id="ev-desc" name="description" required /><Dictate target="ev-desc" /></Field>
+                  <Field label="Description" id="ev-desc"><textarea id="ev-desc" name="description" required /></Field>
                   <Field label="File (optional)" id="ev-file"><input id="ev-file" name="file" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt" /></Field>
                   <button className="btn" type="submit">{t('Save evidence')}</button>
                 </form>
@@ -378,7 +377,7 @@ export function Case() {
                     <Field label="Given by" id="st-kind"><select id="st-kind" name="kind"><option>{t('witness')}</option><option>{t('victim')}</option><option>{t('accused')}</option><option>{t('suspect')}</option></select></Field>
                     <Field label="Name" id="st-person"><input id="st-person" name="person" required /></Field>
                   </div>
-                  <Field label="Statement" id="st-body"><textarea id="st-body" name="body" required /><Dictate target="st-body" /></Field>
+                  <Field label="Statement" id="st-body"><textarea id="st-body" name="body" required /></Field>
                   <button className="btn" type="submit">{t('Save statement')}</button>
                 </form>
               </details>
@@ -454,7 +453,7 @@ export function Case() {
               <details style={{ marginTop: 'var(--space-md)' }}>
                 <summary>{t('Write a report')}</summary>
                 <form onSubmit={submit('/reports', 'Report saved.')}>
-                  <Field label="Report" id="content"><textarea id="content" name="content" required /><Dictate target="content" /></Field>
+                  <Field label="Report" id="content"><textarea id="content" name="content" required /></Field>
                   <button className="btn" type="submit">{t('Save report')}</button>
                 </form>
               </details>
@@ -494,7 +493,7 @@ export function Case() {
                 <summary>{t('File the chargesheet')}</summary>
                 <form onSubmit={submit('/chargesheet', 'Chargesheet filed. The case is now at Chargesheet Filed.')}>
                   <Field label="Sections" id="cs-sections" hint="Needs at least one suspect or accused linked to the case."><input id="cs-sections" name="sections" placeholder="BNS 303" required /></Field>
-                  <Field label="Summary" id="cs-summary"><textarea id="cs-summary" name="summary" required /><Dictate target="cs-summary" /></Field>
+                  <Field label="Summary" id="cs-summary"><textarea id="cs-summary" name="summary" required /></Field>
                   <button className="btn btn--primary" type="submit">{t('File chargesheet')}</button>
                 </form>
               </details>

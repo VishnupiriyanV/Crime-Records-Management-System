@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 from ..auth import is_staff, login_required
 from ..constants import CATEGORIES, SEVERITIES, parse_fir, with_fir
-from ..dictation import read_complaint
 from ..overdue import complaint_flags
 from .. import ledger, similar
 from ..db import get_db, many, one, run
@@ -170,16 +169,6 @@ def check_draft(body: Draft, user=login_required()):
 def similar_complaints(complaint_id: int, user=login_required("officer", "admin")):
     c = _load(complaint_id, user)
     return {"items": similar_to(dict(c), user, exclude=complaint_id)}
-
-
-class Spoken(BaseModel):
-    text: str = ""
-
-
-@router.post("/complaints/dictation")
-def from_speech(body: Spoken, user=login_required()):
-    """Suggest the form fields for a spoken account; nothing is saved."""
-    return read_complaint(body.text[:4000])
 
 
 @router.get("/meta")

@@ -118,50 +118,19 @@ def test_dark_mode_and_phone_layout(page):
 
 
 
-def test_speaking_a_complaint_fills_the_form(page):
-    from datetime import date, timedelta
-
-    # headless Chromium cannot hear anything, so a stand-in speech engine "hears" one sentence
-    page.add_init_script("""
-      window.SpeechRecognition = window.webkitSpeechRecognition = class {
-        start() {
-          setTimeout(() => {
-            const heard = Object.assign([{ transcript: 'someone stole my bike near the bus stand yesterday evening' }], { isFinal: true });
-            this.onresult({ resultIndex: 0, results: [heard] });
-          }, 50);
-        }
-        stop() { setTimeout(() => this.onend(), 0); }
-        abort() {}
-      };
-    """)
-    sign_in(page, "asha@e2e.test")
-    page.goto(page.base + "/complaints/new")
-    page.fill("#location", "")
-    page.click("text=Speak your complaint")
-    expect(page.locator(".voice-heard")).to_contain_text("stole my bike")
-    page.click("text=Stop and fill the form")
-
-    expect(page.locator(".voice-result")).to_contain_text("Check every field")
-    expect(page.locator("#title")).to_have_value("Theft at the bus stand")
-    expect(page.locator("#category")).to_have_value("Theft")
-    expect(page.locator("#location")).to_have_value("the bus stand")
-    expect(page.locator("#incident_date")).to_have_value((date.today() - timedelta(days=1)).isoformat())
-    expect(page.locator("#description")).to_have_value("Someone stole my bike near the bus stand yesterday evening.")
-
-
 def test_admin_makes_a_token_and_a_webhook(page):
     sign_in(page, "admin@e2e.test")
     page.goto(page.base + "/integrations")
     page.fill("#tk-name", "Court feed")
     page.click("text=Create token")
-    expect(page.locator(".voice-panel code")).to_contain_text("crms_")
+    expect(page.locator(".notice-panel code")).to_contain_text("crms_")
     page.click("text=I have saved it")
     expect(page.locator("table.data").first).to_contain_text("Court feed")
 
     page.fill("#wh-url", "https://example.test/hook")
     page.check("input[value='case.opened']")
     page.click("text=Add webhook")
-    expect(page.locator(".voice-panel code")).to_be_visible()  # the signing secret, shown once
+    expect(page.locator(".notice-panel code")).to_be_visible()  # the signing secret, shown once
     page.click("text=I have saved it")
     expect(page.locator("table.data").nth(1)).to_contain_text("case.opened")
     # remove it again, or every later test that opens a case would try to deliver to this address
@@ -186,7 +155,7 @@ def test_similar_complaint_is_flagged_before_filing(page):
 
     fill("Boat engine theft", "Someone stole the outboard engine from my boat at the Harbour road jetty")
     page.click("text=Submit complaint")
-    expect(page.locator(".voice-panel[role=alert]")).to_contain_text("You may have filed this already")
+    expect(page.locator(".notice-panel[role=alert]")).to_contain_text("You may have filed this already")
     page.click("text=This is a different incident")
     expect(page).to_have_url(re.compile(r"/complaints/\d+$"))
 

@@ -4,7 +4,6 @@ import { api, upload, withQuery } from '../api.js';
 import { MiniMap, PinPicker } from '../MapView.jsx';
 import { useSession } from '../session.jsx';
 import { Attachments, Crumbs, Download, Empty, Failed, Field, Filters, formData, Loading, PageHead, Pager, Flags, Progress, SavedViews, SortTh, Status, Tags, useAct, useLoad } from '../ui.jsx';
-import { Dictate, SpeakComplaint } from '../voice.jsx';
 import { useT } from '../i18n.jsx';
 
 export function Complaints() {
@@ -174,11 +173,9 @@ export function NewComplaint() {
     <>
       <PageHead title={t(editing ? 'Edit your complaint' : 'File a complaint')} text={editing ? 'Your earlier wording is kept in the record.' : 'The station reviews every complaint before a case is opened.'} />
       <form className="panel form-narrow" onSubmit={submit} ref={formRef}>
-        {!editing && <SpeakComplaint />}
         <Field label="Short title" id="title"><input id="title" name="title" maxLength={120} defaultValue={c?.title} required /></Field>
         <Field label="What happened" id="description">
           <textarea id="description" name="description" defaultValue={c?.description} required />
-          <Dictate target="description" />
         </Field>
         <div className="row">
           <Field label="Category" id="category">
@@ -201,7 +198,7 @@ export function NewComplaint() {
           </Field>
         )}
         {similar.length > 0 && (
-          <div className="voice-panel" role="alert">
+          <div className="notice-panel" role="alert">
             <b>{t('You may have filed this already')}</b>
             <ul className="trail">
               {similar.map((x) => (
@@ -210,7 +207,7 @@ export function NewComplaint() {
                 </li>
               ))}
             </ul>
-            <div className="voice-row">
+            <div className="notice-row">
               <button type="button" className="btn btn--small" onClick={() => { skipCheck.current = true; setSimilar([]); formRef.current.requestSubmit(); }}>
                 {t('This is a different incident, file it')}
               </button>

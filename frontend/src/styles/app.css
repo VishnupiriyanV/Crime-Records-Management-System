@@ -274,13 +274,9 @@ html[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) grayscale(1) sepi
 .skeleton { height: 14px; margin: var(--space-md) 0; background: var(--color-paper-3); }
 .skeleton.short { width: 40%; }
 
-/* voice input */
-.voice-panel { background: var(--color-paper-2); border-radius: var(--radius-card); padding: var(--space-md); margin-bottom: var(--space-md); display: grid; gap: var(--space-sm); }
-.voice-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-top: var(--space-xs); }
-.voice-lang { width: auto; height: 32px; padding: 0 var(--space-xs); font-size: var(--text-sm); }
-.voice-heard { margin: 0; font-style: italic; }
-.voice-problem { color: var(--color-error); margin: 0; }
-.voice-result { margin: 0; font-weight: 600; }
+/* notice panels: a tinted box with a row of actions */
+.notice-panel { background: var(--color-paper-2); border-radius: var(--radius-card); padding: var(--space-md); margin-bottom: var(--space-md); display: grid; gap: var(--space-sm); }
+.notice-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-top: var(--space-xs); }
 
 @media (max-width: 60rem) {
   .cols, .cols--even { grid-template-columns: minmax(0, 1fr); }

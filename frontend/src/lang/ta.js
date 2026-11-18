@@ -177,25 +177,6 @@ export default {
   'Resolved': 'தீர்க்கப்பட்டது',
   'Closed, unresolved': 'முடிக்கப்பட்டது, தீர்க்கப்படவில்லை',
 
-  // voice input
-  'Speak your complaint': 'புகாரைப் பேசிச் சொல்லுங்கள்',
-  'Stop and fill the form': 'நிறுத்தி படிவத்தை நிரப்பு',
-  "Say what happened, where and when. Your browser's speech service turns it into text, and it may send the audio to its maker.": 'என்ன நடந்தது, எங்கே, எப்போது என்பதைச் சொல்லுங்கள். உங்கள் உலாவியின் பேச்சு சேவை அதை உரையாக மாற்றும்; ஒலிப்பதிவு உலாவி நிறுவனத்துக்கு அனுப்பப்படலாம்.',
-  'In Tamil and Hindi only the category and date are filled in; the place stays empty.': 'தமிழ் மற்றும் இந்தியில் வகையும் தேதியும் மட்டுமே நிரப்பப்படும்; இடம் காலியாகவே இருக்கும்.',
-  'Filled from your voice: {fields}. Check every field before you submit.': 'உங்கள் குரலிலிருந்து நிரப்பப்பட்டது: {fields}. சமர்ப்பிக்கும் முன் ஒவ்வொரு பெட்டியையும் சரிபாருங்கள்.',
-  'Nothing was filled because those boxes already have text.': 'அந்தப் பெட்டிகளில் ஏற்கனவே உரை இருப்பதால் எதுவும் நிரப்பப்படவில்லை.',
-  'Could not read that: {error}': 'அதைப் படிக்க முடியவில்லை: {error}',
-  'The microphone is blocked. Allow it in the address bar and try again.': 'மைக்ரோஃபோன் தடுக்கப்பட்டுள்ளது. முகவரிப் பட்டையில் அனுமதித்து மீண்டும் முயலவும்.',
-  'Voice input stopped ({error}).': 'குரல் உள்ளீடு நின்றுவிட்டது ({error}).',
-  'Dictate': 'பேசி எழுது',
-  'Stop': 'நிறுத்து',
-  "Uses your browser's speech service.": 'உங்கள் உலாவியின் பேச்சு சேவையைப் பயன்படுத்துகிறது.',
-  'Speaking a complaint needs Chrome, Edge or Safari.': 'புகாரைப் பேசிப் பதிவு செய்ய Chrome, Edge அல்லது Safari தேவை.',
-  'Spoken language': 'பேசும் மொழி',
-  'what happened': 'என்ன நடந்தது',
-  'title': 'தலைப்பு',
-  'place': 'இடம்',
-  'date': 'தேதி',
   'category': 'வகை',
 
   // pages

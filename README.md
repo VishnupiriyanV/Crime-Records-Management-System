@@ -9,7 +9,7 @@
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-documents-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
 [![SQL](https://img.shields.io/badge/SQL-SQLite%20%7C%20PostgreSQL%20%7C%20MySQL-336791)](#choosing-the-relational-database)
-[![Tests](https://img.shields.io/badge/tests-79%20API%20%2B%2013%20browser-brightgreen)](#testing)
+[![Tests](https://img.shields.io/badge/tests-77%20API%20%2B%2012%20browser-brightgreen)](#testing)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 [Features](#features) ·
@@ -45,7 +45,7 @@ CRMS is a web application for a police station. Citizens file and track complain
 ## Features
 
 **For citizens**
-- File a complaint with a map pin and up to five attached files, or speak it in English, Tamil or Hindi.
+- File a complaint with a map pin and up to five attached files, in English, Tamil or Hindi.
 - Get a warning before filing a complaint that looks like one already made.
 - Follow the complaint through four stages and get a notification (and, if the station has set up e-mail, an e-mail) at each step, with a reason when it is rejected.
 - Correct a complaint, or withdraw it, until the station has reviewed it. What it said before stays in the record.
@@ -149,11 +149,10 @@ All settings are environment variables and all are optional on a development mac
 
 <br>
 
-The language menu in the top bar switches every screen to Tamil or Hindi and remembers the choice. That covers the citizen screens and the staff screens (dashboard, cases and the case file, criminals, reports, users, audit, integrations, search, map, stations), along with statuses, severities, crime types, custody actions and the voice buttons. These stay in English: the case timeline and audit entries the server writes, error messages from the server, anything people typed (titles, descriptions, names, evidence notes), and the browser's own file and date controls.
+The language menu in the top bar switches every screen to Tamil or Hindi and remembers the choice. That covers the citizen screens and the staff screens (dashboard, cases and the case file, criminals, reports, users, audit, integrations, search, map, stations), along with statuses, severities, crime types and custody actions. These stay in English: the case timeline and audit entries the server writes, error messages from the server, anything people typed (titles, descriptions, names, evidence notes), and the browser's own file and date controls.
 
 The words live in `frontend/src/lang/ta.js` and `hi.js`, with the English text as the key. A string with no entry shows in English, so a missing translation never breaks a page. To translate another screen, wrap its text in `t('...')` from `useT()` and add the entry to both files. The translations were written without a native speaker checking them, so have someone who reads Tamil and Hindi review the wording before real use, especially legal terms such as the chargesheet and the case statuses.
 
-Speaking a complaint in Tamil or Hindi fills the description, and the category and date when it recognises the words (`app/dictation.py`); the place is only read from English.
 
 </details>
 
@@ -210,18 +209,6 @@ Only the assigned officer or an admin can change a case. An officer can open any
 **Saved views** keep a filter of the Cases or Complaints list under a name, per person (20 per list). They sit under the filter row.
 
 </details>
-
-<details>
-<summary><b>Voice input</b></summary>
-
-<br>
-
-On the complaint form, **Speak your complaint** takes a spoken account and fills the title, description, place, date and category. It only fills boxes that are still empty, and only sets a date when one was spoken ("yesterday", "3 days ago", "5 November"). Officers get a **Dictate** button next to the evidence, statement, report and chargesheet text boxes.
-
-It uses the browser's own speech recognition, so it works in Chrome, Edge and Safari and the buttons are hidden elsewhere (Firefox). Chrome and Edge send the audio to the browser maker's speech service, which matters for sensitive reports; say so to the people using it. The page must be on HTTPS or localhost for the microphone to work. English, Tamil and Hindi can be spoken, but only English is sorted into category, date and place (`app/dictation.py`).
-
-</details>
-
 <details>
 <summary><b>Connecting other systems: tokens, JSON export and webhooks</b></summary>
 
@@ -232,7 +219,6 @@ Admins open **Integrations** to make API tokens and webhooks.
 - **Tokens.** Send `Authorization: Bearer crms_...` with each call. A token acts as the admin who made it. A read token can only fetch, and no token can manage users, tokens or webhooks. Only a hash is stored, so the token is shown once. Revoke it from the same page.
 - **JSON export.** `GET /api/export/fir/{id}` returns one complaint with its case, people, chargesheet and court dates. `GET /api/export/firs?since=2026-01-01&page=1` returns them 25 at a time. The layout is ours, named `crms.fir/1` in each record; it is not the national CCTNS format.
 - **Webhooks.** CRMS posts JSON to your address when a complaint is filed or changes status, a case is opened or changes status, or a case is assigned. Each call carries `X-CRMS-Event` and `X-CRMS-Signature` (`sha256=` and the HMAC-SHA256 of the raw body, keyed with the secret shown when you added it). It tries three times and the page shows the last result. Only ids, FIR number, status and category go out. When the site is live the address must be `https://` and reachable from the internet.
-- **Speech to fields.** `POST /api/complaints/dictation` with `{"text": "..."}` returns the form fields it can read from a transcript, for example from a call centre. Nothing is saved.
 
 </details>
 

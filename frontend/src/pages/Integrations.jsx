@@ -11,10 +11,10 @@ function ShownOnce({ title, value, onClose }) {
     try { await navigator.clipboard.writeText(value); setCopied(true); } catch { /* the text is selectable instead */ }
   };
   return (
-    <div className="voice-panel" role="status">
+    <div className="notice-panel" role="status">
       <b>{t(title)}</b>
       <code style={{ overflowWrap: 'anywhere', userSelect: 'all' }}>{value}</code>
-      <div className="voice-row">
+      <div className="notice-row">
         <button type="button" className="btn btn--small" onClick={copy}>{t(copied ? 'Copied' : 'Copy')}</button>
         <button type="button" className="btn btn--small" onClick={onClose}>{t('I have saved it')}</button>
       </div>
